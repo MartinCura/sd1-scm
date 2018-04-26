@@ -1,0 +1,52 @@
+Sistema de colas de mensajes distribuido
+
+Cada una puede publicar y leer de distintas colas
+Estilo publisher/subscriber
+Cuando mando mensaje a la cola, se distribuye a todos los subscriptos a la cola
+...después cuando el subscripto pide el siguiente lo recibirá
+
+5 funciones:
+crear: un sistema de cola de mensajes, identificado con un id, como un fd / "SU USUARIO DE COLA DE MENSAJES, SU ID"
+publish: id, msg, cola (topic)
+suscribirte: id, cola
+recibir el siguiente (msg, topic) solo en las q estés suscripto
+destruir
+
+Un broker (servidor) administra y almacena los mensajes/colas de mensajes
+redirige a los distintos clientes
+punto de entrada al sistema
+
+-- Camino --
+
+La interfaz recibe el método y lo empaqueta en un mensaje para el broker/broker local mediante una cola
+
+El broker se lo envía al server, primero inicializando una conexión (socket y todo eso). Lo puede hacer se inicializa el proceso del BL, o cuando recibe el primer mensaje. El server tiene que estar corriendo y esperando mjes en algún socket.
+
+En el BL un proceso lee de la cola lee los mensajes de la interfaz y se los envía al server, y otro recibe las respuestas del server y mandarlas como respuestas a la cola local para que lo reciba el cliente.
+
+Los BL son client-side, obvio
+
+El server al iniciar una conexión con el socket de un BL interesado, debe forkear 2 procesos para ese cliente: M1 ("handler") recibe los requests del cliente, este forkea otro que devuelve las respuestas al cliente.
+
+M1 metiendo el mensaje en una cola envía a uno o varios procesos worker ("proc") el pedido, los cuales ejecutan el backend. La respuesta la mete en una cola interna del server, con un id identificatorio del cliente. (También puedo hacer que haya colas internas propias para cada cliente, pero complica las cosas creo.) El proceso de respuesta apropiado (M1') agarra el mensaje y lo manda por socket al cliente, lo recibe el BL, que lo mete en su cola local, lo lee la interfaz y lo muestra al cliente.
+
+---------
+
+Las colas de mensajes y los clientes suscriptos los guardamos en el fs. Guardamos varios archivos, 1 por cola, y adentro los ids de los clientes suscriptos. Al suscribirse, lo agregan. Al publicar, se sabe a quiénes enviar.
+
+Según entiendo, al publicarse un mensaje, el server lo envía a los BL de usuarios suscriptos, y estos los retienen hasta recibir un RECV. Lo guarda en memoria o disco.
+
+En una computadora podés tener varios clientes con un mismo BL (sus procesos son únicos).
+
+Hay que tener una tabla de mappeo de id local a id global. El create se pasa al server, que devuelve id global, y el BL recibe el global y lo mappea a uno local.
+
+---------
+
+DUDAS
+1. Llamamos topics a las colas de mensajes del sistema, no? Se identifican con un string?
+2. Qué tenemos que hacer para el lado del usuario, un cli (command-line interface)? Nos tenemos que preocupar de que haya una forma de saber qué topics hay? O podemos simplemente asumir que el cliente sabe cuáles hay?
+3. Cualquiera puede publicar a un topic? Los topics se crean si no existen si se publica a ellas?
+4. Qué es el status que returnean SUB(id, topic) y PUB(id, msg, topic) ?
+5. El recv no sale del Broker Local, cierto?
+6. Por qué hay id global y local y no solo global?
+
