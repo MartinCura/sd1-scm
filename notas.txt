@@ -16,13 +16,14 @@ Un broker (servidor) administra y almacena los mensajes/colas de mensajes
 redirige a los distintos clientes
 punto de entrada al sistema
 
+
 -- Camino --
 
 La interfaz recibe el método y lo empaqueta en un mensaje para el broker/broker local mediante una cola
 
 El broker se lo envía al server, primero inicializando una conexión (socket y todo eso). Lo puede hacer se inicializa el proceso del BL, o cuando recibe el primer mensaje. El server tiene que estar corriendo y esperando mjes en algún socket.
 
-En el BL un proceso lee de la cola lee los mensajes de la interfaz y se los envía al server, y otro recibe las respuestas del server y mandarlas como respuestas a la cola local para que lo reciba el cliente.
+En el BL un proceso de la cola lee los mensajes de la interfaz y se los envía al server, y otro recibe las respuestas del server y mandarlas como respuestas a la cola local para que lo reciba el cliente.
 
 Los BL son client-side, obvio
 
@@ -50,3 +51,23 @@ DUDAS
 5. El recv no sale del Broker Local, cierto?
 6. Por qué hay id global y local y no solo global?
 
+RESPUESTAS
+1. Sí.
+2. Preocuparme solo en hacerlo programáticamente. Hacer un main q reciba por argumento.
+3. a) Cualquiera puede. b) Lo manejo yo. Si no existe, se crea; y que haya algunos default.
+4. Status = si dio bien; como quiera yo.
+5. Sí.
+6. Por abstracción tal vez. Hacerlo igual.
+
+------------
+
+Otros TODOs:
+- Revisar abstracciones ipc para que sean más claras
+- Revisar persistencia
+
+
+DUDAS 2:
+1. Se guardan mensajes viejos de un topic? Si publico a uno que no existe, nadie lo recibirá? Debería informar de esto al publicar a uno nuevo.
+2. Cómo hace el worker para que el reply handler correcto reciba su reply? == Cómo lo identifica unívocamente? Tanto en el create como más adelante. Usa ip+puerto como identificador?
+3. ACK??
+4. Forma prolija de que no se queje de infinite loops cuando hago los daemons?
