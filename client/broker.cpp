@@ -109,7 +109,7 @@ void replier(int q_rep, int q_storedmsg, int sfd) {
                     qsend(q_rep, &m, sizeof(m));
                     break;
                 default:
-                    log_error("Tipo de mensaje no esperado. Freno");
+                    log_error("broker-replier: Tipo de mensaje no esperado. Freno");
                     exit(-1);
             }
         }

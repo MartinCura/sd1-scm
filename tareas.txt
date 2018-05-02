@@ -19,3 +19,21 @@ Procesa apropiadamente el comando recibido:
 -Recv: Ignorar, no debería llegar hasta acá. Error.
 -Destroy: Si id existe, desubscribirlo de todos los topics y desregistrarlo (debería ser medianamente atómico).
 
+
+
+Idea para flujo de ids:
+
+En general:
+	client <-------> broker <-----||----> handlers <-------> workers
+mtype       loc        	loc/X			X/cfd	        cfd
+id          loc         loc/glob	       glob	       glob
+
+En CREATE():
+	client --------> broker ------||----> handlers --------> workers
+mtype       loc        	loc/X			X/cfd	        cfd
+id          loc           loc		       	loc		loc
+	client <-------- broker <-----||----- handlers <-------- workers
+mtype       loc        	loc/X			X/cfd	        cfd
+id          loc         loc/glob	        glob       glob/loc
+
+X puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.

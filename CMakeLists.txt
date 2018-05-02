@@ -17,3 +17,4 @@ set(DEPENDENCIES
 add_executable(scm-client   client/main.cpp     ${DEPENDENCIES})
 add_executable(local-broker client/broker.cpp   ${DEPENDENCIES})
 add_executable(scm-server   server/server.cpp   ${DEPENDENCIES})
+add_executable(server-worker server/worker.cpp  ${DEPENDENCIES})

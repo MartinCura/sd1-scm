@@ -16,7 +16,13 @@
 #define MAX_TOPIC_LENGTH 30
 #define MAX_MSG_LENGTH   280
 #define IP_SERVER "127.0.0.1"
-#define PUERTO_SERVER 8080
-#define CANT_SERVER_WORKERS 2
+#define PUERTO_SERVER   8080
+#define CANT_SERVER_WORKERS 1
+#define SERVER_FIRST_ID 1001
+
+#define SERVER_DB_ROOT_DIR    "db/"
+#define SERVER_DB_TOPICS_DIR  "db/topics/"
+#define SERVER_DB_SUBS_DIR    "db/subs/"
+#define SERVER_DB_FILE_EXT    ".txt"
 
 #endif //SD1_SCM_CONSTANTS_H

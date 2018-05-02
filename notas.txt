@@ -62,8 +62,11 @@ RESPUESTAS
 ------------
 
 Otros TODOs:
+- Verificar estar usando el flujo de id's
+- -Wall y eso
 - Revisar abstracciones ipc para que sean más claras
 - Revisar persistencia
+- Hacer diagramas (de secuencia, de ¿persistencia?)
 
 
 DUDAS 2:
@@ -71,3 +74,5 @@ DUDAS 2:
 2. Cómo hace el worker para que el reply handler correcto reciba su reply? == Cómo lo identifica unívocamente? Tanto en el create como más adelante. Usa ip+puerto como identificador?
 3. ACK??
 4. Forma prolija de que no se queje de infinite loops cuando hago los daemons?
+5. Sí o sí conviene hacer la indexación inversa en archivos? Cómo se llama la 2° carpeta en la imagen?
+
