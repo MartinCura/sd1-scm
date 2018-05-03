@@ -12,6 +12,8 @@
 extern "C" {
 #include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
+#include "../common/ipc/semaphore.h"
+#include "../common/ipc/shm.h"
 }
 
 std::string getTopicFn(std::string topic) {
@@ -30,8 +32,11 @@ int main(int argc, char* argv[]) {
         log_error("worker: Error al crear msg queue. Freno");
         exit(-1);
     }
-    std::map<int,int> ids;
-    int next_id = SERVER_FIRST_ID;  ///TODO: Compartir next_id con otros workers mediante shm
+    // Mappeo id local-global; shm con id siguiente y sem para acceder a ella
+    std::map<int,int> ids;      ///TODO: Mover a shm    // Alternativa: hacerlo mediante threads!?
+    int next_id_sem = getsem(SERVER_NEXT_ID_SEM_ID);
+    int next_id_shm = getshm(SERVER_NEXT_ID_SHM_ID);
+    int* next_id_p = (int*) mapshm(next_id_shm);
 
     while (true) {
         struct msg_t m;
@@ -47,7 +52,9 @@ int main(int argc, char* argv[]) {
             switch (m.type) {   ///TODO: Limpiar diviendo en funciones?
                 case CREATE_MSG:    // Entrego y registro nuevo id
                     {
-                        m.id = next_id++;
+                        p(next_id_sem); {
+                            m.id = (*next_id_p)++;      ///Espero que el incrementador funcione con int* como con un int
+                        } v(next_id_sem);
                         //std::pair<std::map<int,int>::iterator,bool> ret;//
                         if (!ids.insert(std::pair<int, int>(m.id, m.mtype)).second) {
                             // Id ya estaba registrado???
@@ -133,7 +140,7 @@ int main(int argc, char* argv[]) {
                             s_ifs.open(s_fn, std::ifstream::in);
                             std::string t;
                             int s;
-                            while (s_ifs >> t) {    ///TODO: REEMPLAZAR ESTOS DEL TOPIC POR GETLINE
+                            while (std::getline(s_ifs, t)) {
                                 // Copio archivo del topic ignorando al sub que elimino
                                 std::string t_fn = getTopicFn(t);
                                 std::string aux_fn = t_fn + ".aux";
@@ -173,4 +180,6 @@ int main(int argc, char* argv[]) {
             log_debug("worker: Devolví por cola el mensaje respuesta");
         }
     }
+
+    ///TOOD: Handler? con unmapshm(next_id_shm);
 }

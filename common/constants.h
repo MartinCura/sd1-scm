@@ -12,6 +12,12 @@
 #define SERVER_REQ_Q_ID 4
 #define SERVER_REP_Q_ID 5
 
+// Semáforos
+#define SERVER_NEXT_ID_SEM_ID 1
+
+// Memoria compartida
+#define SERVER_NEXT_ID_SHM_ID 1
+
 // Constantes
 #define MAX_TOPIC_LENGTH 30
 #define MAX_MSG_LENGTH   280

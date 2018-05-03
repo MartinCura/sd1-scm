@@ -1,14 +1,9 @@
-//
-// Created by gaston on 22/04/18.
-//
-
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <stdlib.h>
 #include "semaphore.h"
-#include "../resources.h"
+#include "resources.h"
 #include "../log/log.h"
-
 
 int creasem(int identif) {
     key_t clave;
@@ -41,12 +36,10 @@ int getsem(int identif) {
 
 int inisem(int semid, int val) {
     union semun {
-        int val;
-        /* Value for SETVAL */
-        struct semid_ds *buf;
-        /* Buffer for IPC_STAT, IPC_SET */
-        unsigned short *array; /* Array for GETALL, SETALL */
-        struct seminfo *__buf; /* Buffer for IPC_INFO(Linux specific)*/
+        int val;                /* Value for SETVAL */
+        struct semid_ds *buf;   /* Buffer for IPC_STAT, IPC_SET */
+        unsigned short *array;  /* Array for GETALL, SETALL */
+        struct seminfo *__buf;  /* Buffer for IPC_INFO (Linux specific)*/
     } arg;
     arg.val = val;
     int res = semctl(semid, 0, SETVAL, arg);

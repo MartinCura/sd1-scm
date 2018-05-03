@@ -1,17 +1,13 @@
-//
-// Created by gaston on 22/04/18.
-//
-
 #include <sys/ipc.h>
 #include <stdlib.h>
 #include <sys/shm.h>
 #include "shm.h"
-#include "../resources.h"
+#include "resources.h"
 #include "../log/log.h"
 
-int   creashm(int id, int size){
+int creashm(int key, int size) {
     key_t clave;
-    clave = ftok(DIRECTORY, id);
+    clave = ftok(DIRECTORY, key);
     if (clave < 0) {
         log_error("Error on ftok while creating shared memory");
         return -1;
@@ -24,7 +20,7 @@ int   creashm(int id, int size){
     return shm_id;
 }
 
-int   getshm(int id){
+int getshm(int id) {
     key_t clave;
     clave = ftok(DIRECTORY, id);
     if (clave < 0) {
@@ -38,16 +34,16 @@ int   getshm(int id){
     return shm_id;
 }
 
-void* map(int id){
-    void*addr = shmat(id, NULL, 0);
-    if(addr==(void*)-1){
+void* map(int id) {
+    void* addr = shmat(id, NULL, 0);
+    if (addr == (void*) -1) {
         log_error("No se pudo mapear la memoria");
         exit(-1);
     }
     return addr;
 }
 
-int   unmap(void* addr){
+int unmap(void* addr) {
     int res = shmdt(addr);
     if (res < 0) {
         log_error("Error unmapping shared memory");
@@ -55,7 +51,7 @@ int   unmap(void* addr){
     return res;
 }
 
-int   delshm(int id){
+int delshm(int id) {
     int res = shmctl(id, IPC_RMID, (struct shmid_ds *) 0);
     if (res < 0) {
         log_error("Error deleting shared memory");

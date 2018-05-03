@@ -11,6 +11,8 @@ extern "C" {
 #include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
 #include "../common/ipc/socket.h"
+#include "../common/ipc/shm.h"
+#include "../common/ipc/semaphore.h"
 }
 
 void requestHandler(int cfd, int q_req, int q_rep);
@@ -24,6 +26,14 @@ int main(int argc, char* argv[]) {
         log_error("server: Error al crear msg queue. Freno");
         exit(-1);
     }
+
+    // Creo shm para próximo id y sem para acceder
+    int next_id_sem = creasem(SERVER_NEXT_ID_SEM_ID);
+    inisem(next_id_sem, 1);
+    int next_id_shm = creashm(SERVER_NEXT_ID_SHM_ID, sizeof(int));
+    int* next_id_p = (int*) mapshm(next_id_shm);
+    *next_id_p = SERVER_FIRST_ID;
+
     // Lanzo workers    ///TODO
     /*for (int i = 0; i < CANT_SERVER_WORKERS; ++i) {
         if (fork() == 0) {
@@ -31,6 +41,7 @@ int main(int argc, char* argv[]) {
             exit(0);
         }
     }*/
+
     // Inicio conexión esperando clientes
     int sfd = create_server_socket(PUERTO_SERVER);
 
@@ -45,10 +56,13 @@ int main(int argc, char* argv[]) {
         }
     }
     ///TODO: Handler que cierre el socket
-    close(sfd);
-    qdel(q_req);
-    qdel(q_rep);
-    return 0;
+//    close(sfd);
+//    unmapshm(next_id_p);
+//    delshm(next_id_shm);
+//    delsem(next_id_sem);
+//    qdel(q_req);
+//    qdel(q_rep);
+//    return 0;
     ///TODO: Ppalmente acá, handlear bien que hayan cerrado los sockets
 }
 
