@@ -8,7 +8,6 @@
 #include <cstring>
 #include "../common/constants.h"
 #include "../common/message.h"
-
 extern "C" {
 #include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
@@ -64,7 +63,7 @@ int main(int argc, char* argv[]) {
                     }
                     break;
 
-                case SUB_MSG:       // Si id existe, en fs agrega sub al topic y topic al sub. Si topic no existía lo crea
+                case SUB_MSG:     // Si id existe, en fs agrega sub al topic y topic al sub. Si topic no existía lo crea
                     {
                         if (ids.find(m.id) != ids.end()) {
                             ///Validar input?
@@ -81,7 +80,7 @@ int main(int argc, char* argv[]) {
                             } else {
                                 // No lo encontré, lo suscribo
                                 t_fs.clear();
-                                t_fs << m.id << std::endl;  // Agrego id al topic
+                                t_fs << m.id << std::endl;  // Agrego id del sub al topic
                                 s_fs.open(getSubFn(m.id), std::fstream::out | std::fstream::app);
                                 s_fs << m.topic << std::endl;   // Agrego topic al sub
                                 s_fs.close();
@@ -95,7 +94,7 @@ int main(int argc, char* argv[]) {
                     }
                     break;
 
-                case PUB_MSG:
+                case PUB_MSG:     // Si id existe, envía msg a cada suscriptor. Si topic no existía lo crea
                     {
                         if (ids.find(m.id) != ids.end()) {
                             // Preparo mensaje de difusión
@@ -104,14 +103,14 @@ int main(int argc, char* argv[]) {
                             strncpy(m_dif.topic, m.topic, MAX_TOPIC_LENGTH);
                             strncpy(m_dif.msg, m.msg, MAX_MSG_LENGTH);
 
-                            int s;
+                            int id_s;
                             std::ifstream t_ifs;
-                            t_ifs.open(getTopicFn(m.topic), std::ifstream::in);
-                            // Envío un mensaje por cada suscriptor
-                            while (t_ifs >> s) {
-                                std::map<int, int>::iterator it_rcp = ids.find(s);
+                            t_ifs.open(getTopicFn(m.topic), std::ifstream::in | std::ifstream::app);
+                            // Difusión: Envío un mensaje por cada suscriptor
+                            while (t_ifs >> id_s) {
+                                std::map<int, int>::iterator it_rcp = ids.find(id_s);
                                 if (it_rcp != ids.end()) {
-                                    m_dif.id = s;
+                                    m_dif.id = id_s;
                                     m_dif.mtype = it_rcp->second;   // cfd para este id
                                     qsend(q_rep, &m_dif, sizeof(m_dif));
                                 } else {

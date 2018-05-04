@@ -75,4 +75,8 @@ DUDAS 2:
 3. ACK??
 4. Forma prolija de que no se queje de infinite loops cuando hago los daemons?
 5. Sí o sí conviene hacer la indexación inversa en archivos? Cómo se llama la 2° carpeta en la imagen?
-
+6. Cómo lockear archivos (individualmente) desde los workers, clara. Esto podría hacerlo cambiando los streams por funciones de C
+7. Broker: compartir el map de ids entre el requester y el replier. Array de pairs? de tuples?
+8. Cómo identificar al usuario para devolverle su id local? Posible: creo id falso rnd para usar como mtype/id, BL me dice si ya está en uso, en cuyo caso reintento con otro rnd.
+9. Cómo avisar de errores? Podría mandar el error en id como valores negativos. En msg puedo mandar descripción del error.
+10. Interesa quién publicó un mensaje?

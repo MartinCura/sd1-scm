@@ -1,7 +1,9 @@
 #include <iostream>
-#include <string>
 #include <cstring>
 #include "../common/message.h"
+extern "C" {
+#include "../common/ipc/msg_queue.h"
+}
 
 void showHelp(char* argv[]);
 int createUser();
@@ -16,111 +18,120 @@ int main(int argc, char* argv[]) {
         showHelp(argv);
         return 1;
     }
-    std::string c = argv[1];
+    std::string cmd(argv[1]);
 
-    if (argv[1] == "CREATE" || argv[1] == "c") {
+    if (cmd == "CREATE" || cmd == "c") {
         return createUser();
-    } else if (argv[1] == "PUB" || argv[1] == "c") {
+
+    } else if (cmd == "PUB" || cmd == "p") {
         if (argc != 5) {
             std::cerr << "PUBlish requiere 3 argumentos" << std::endl;
             return 1;
         }
-        return publishMessage(strtol(argv[2],NULL,10), argv[3], argv[4]);
-    } else if (argv[1] == "SUB" || argv[1] == "c") {
+        return publishMessage(atoi(argv[2]), argv[3], argv[4]); ///TODO: Mejor chequeo de errores con argv[2]
+
+    } else if (cmd == "SUB" || cmd == "s") {
         if (argc != 4) {
             std::cerr << "SUBscribe requiere 2 argumentos" << std::endl;
             return 1;
         }
-        return subscribeToTopic(strtol(argv[2],NULL,10), argv[3]);
-    } else if (argv[1] == "RECV" || argv[1] == "c") {
+        return subscribeToTopic(atoi(argv[2]), argv[3]);
+
+    } else if (cmd == "RECV" || cmd == "r") {
         if (argc != 3) {
-            std::cerr << "RECieVe requiere 1 argumento" << std::endl;
+            std::cerr << "RECeiVe requiere 1 argumento" << std::endl;
             return 1;
         }
-        return receiveMessage(strtol(argv[2],NULL,10));
-    } else if (argv[1] == "DESTROY" || argv[1] == "c") {
+        return receiveMessage(atoi(argv[2]));
+
+    } else if (cmd == "DESTROY" || cmd == "d") {
         if (argc != 3) {
             std::cerr << "DESTROY requiere 1 argumento" << std::endl;
             return 1;
         }
-        return destroyUser(strtol(argv[2],NULL,10));
-    } else if (argv[1] == "HELP" || argv[1] == "c") {
+        return destroyUser(atoi(argv[2]));
+
+    } else if (cmd == "HELP" || cmd == "h") {
         showHelp(argv);
         return 0;
+
     } else {
         showHelp(argv);
         return 1;
     }
-    //return 0;
+    /// TODO opcional: autocompletado de terminal para los comandos
 }
+
 
 void showHelp(char* argv[]) {
     std::cout << "Usage: " << argv[0] << " COMMAND" << std::endl
-              << "COMMANDS:" << std::endl
-              << '\t' << "CREATE / c" << '\t' << "..." << std::endl
-              << '\t' << "PUB / p" << '\t' << "..." << std::endl
-              << '\t' << "SUB / s" << '\t' << "..." << std::endl
-              << '\t' << "RECV / r" << '\t' << "..." << std::endl
-              << '\t' << "DESTROY / d" << '\t' << "..." << std::endl
-              << '\t' << "HELP / h" << '\t' << "Mostrar esta ayuda" << std::endl;
+              << "Commands:" << std::endl
+              << '\t' << "CREATE / c"  << '\t' << "Crear un usuario; devuelve su id" << std::endl
+              << '\t' << "PUB / p"     << '\t' << "Publicar a un topic (en caso de que no exista lo crea)" << std::endl
+              << '\t' << "SUB / s"     << '\t' << "Suscribirse a un topic" << std::endl
+              << '\t' << "RECV / r"    << '\t' << "Recibir próximo mensaje de cualquier topic" << std::endl
+              << '\t' << "DESTROY / d" << '\t' << "Eliminar un usuario" << std::endl
+              << '\t' << "HELP / h"    << '\t' << "Mostrar esta ayuda" << std::endl;
 }
 
-int addMsgToRequestQ(msg_t m) {
-    //... Acceder a cola correcta, enviar mensaje
-}
 
-msg_t receiveMsgFromReplyQ(int id) {
-    //... Acceder a cola correcta con mtype correcto, esperar mensaje
-}
+/** COMANDOS **/
 
 int createUser() {
     struct msg_t m;
     ///m.mtype = ?
     m.type = CREATE_MSG;
-    addMsgToRequestQ(m);
-    msg_t r = receiveMsgFromReplyQ(0);   // Cómo identifica?
-    // TODO: Mostrar resultados
+    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+    ///qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), ???); RESOLVER cómo identificarlo la 1ra vez
+    ///Condiciones de error?
+    std::cout << "Usuario creado. Tu id es " << m.id << "." << std::endl;
+    return 0;
 }
 
 int publishMessage(int id, char* msg, char* topic) {
     struct msg_t m;
-    ///m.mtype = ?
+    m.mtype = m.id = id;
     m.type = PUB_MSG;
-    m.id = id;
     strncpy(m.msg, msg, MAX_MSG_LENGTH);
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
-    addMsgToRequestQ(m);
-    msg_t r = receiveMsgFromReplyQ(id);
-    // TODO: Mostrar resultados
+    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    ///Condiciones de error?
+    std::cout << "Mensaje publicado.";
+    return 0;
 }
 
 int subscribeToTopic(int id, char* topic) {
     struct msg_t m;
-    ///m.mtype = ?
+    m.mtype = m.id = id;
     m.type = SUB_MSG;
-    m.id = id;
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
-    addMsgToRequestQ(m);
-    msg_t r = receiveMsgFromReplyQ(id);
-    // TODO: Mostrar resultados
+    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    ///Condiciones de error? Ej.: topic no existe
+    std::cout << "Suscripto.";
+    return 0;
 }
 
 int receiveMessage(int id) {
     struct msg_t m;
-    ///m.mtype = ?
+    m.mtype = m.id = id;
     m.type = RECV_MSG;
-    m.id = id;
-    addMsgToRequestQ(m);
-    msg_t r = receiveMsgFromReplyQ(id);
-    // TODO: Mostrar resultados
+    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    ///Condiciones de error? Ej.: topic no existe
+    std::cout << "Topic: " << m.topic << std::endl;
+    std::cout << m.msg << std::endl;
+    return 0;
 }
 
 int destroyUser(int id) {
     struct msg_t m;
-    ///m.mtype = ?
+    m.mtype = m.id = id;
     m.type = DESTROY_MSG;
-    m.id = id;
-    addMsgToRequestQ(m);
-    msg_t r = receiveMsgFromReplyQ(id);
-    // TODO: Mostrar resultados
+    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    ///Condiciones de error? Ej.: topic no existe
+    std::cout << "Usuario " << m.id << " eliminado." << std::endl;
+    return 0;
 }

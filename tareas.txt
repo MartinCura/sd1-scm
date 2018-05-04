@@ -25,15 +25,16 @@ Idea para flujo de ids:
 
 En general:
 	client <-------> broker <-----||----> handlers <-------> workers
-mtype       loc        	loc/X			X/cfd	        cfd
+mtype       loc        	loc/Z			Z/cfd	        cfd
 id          loc         loc/glob	       glob	       glob
 
 En CREATE():
 	client --------> broker ------||----> handlers --------> workers
-mtype       loc        	loc/X			X/cfd	        cfd
-id          loc           loc		       	loc		loc
+mtype         X        	   X			X/cfd	        cfd
+id            0           0/loc		       	loc		loc
 	client <-------- broker <-----||----- handlers <-------- workers
-mtype       loc        	loc/X			X/cfd	        cfd
+mtype       loc        	loc/Z			Z/cfd	        cfd
 id          loc         loc/glob	        glob       glob/loc
 
-X puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.
+X puede ser cualquier cosa.
+Z puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.
