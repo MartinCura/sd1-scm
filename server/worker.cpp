@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
         struct msg_t m;
         // Obtengo próximo mensaje que necesite ser procesado
         if (qrecv(q_req, &m, sizeof(m), 0)) {
+            if (sig_quit) break;
             log_error("worker: Error al recibir mensaje por cola. Sigo");
         } else {
             log_debug("worker: Recibí mensaje por cola:");//
@@ -196,5 +197,5 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    ///TOOD: Handler? con unmapshm(next_id_shm);
+    unmapshm(next_id_p);
 }

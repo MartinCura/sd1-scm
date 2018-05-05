@@ -52,14 +52,16 @@ int main(int argc, char* argv[]) {
 
     // Espero a que terminen y cierro los recursos
     } else {
-        while ( wait(NULL) > 0 );
+        while (!sig_quit);    ///Legal??!
         close(sfd);
         qdel(q_req);
         qdel(q_rep);
         qdel(q_storedmsg);
+        // Espero a que terminen todos los procesos hijos
+        while ( wait(NULL) > 0 );
     }
     return 0;
-    ///TODO: Handler de SIGINT que cierre conexión y queues
+    ///TODO: Handler de SIGINT que cierre conexión y queues. Tengo que hacerlo desde main para cerrar las otras???
     ///TODO: Me falta chequear fork()<0 (fail). En todos lados.
     ///TODO: handler de reqs de recv que responda enviando a q_rep el primer anuncio de dicho id? O lo dejo así?
     ///Comenzar user id desde algo distinto de 1, como 101
@@ -71,6 +73,7 @@ void requester(int q_req, int q_rep, int q_storedmsg, int sfd) { // No sé si me
     while (!sig_quit) {
         log_debug("broker-requester: Espero próximo mensaje en q_req");//
         if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
+            if (sig_quit) break;
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
         } else if (m.type == RECV_MSG) {
             if (devolverMensajeRecibido(q_storedmsg, &m, m.id)) { ///O lo hago de otra manera? Señal al replier?
@@ -94,6 +97,7 @@ void replier(int q_rep, int q_storedmsg, int sfd) {
         // Recibo mensaje del servidor por red
         log_debug("broker-replier: Espero próximo mensaje por red del servidor");//
         if (recv(sfd, &m, sizeof(m), 0) < 0) {
+            if (sig_quit) break;
             log_error("broker-replier: Error al recibir mensaje del servidor");
         } else {
             m.show();//
