@@ -41,13 +41,13 @@ int main(int argc, char* argv[]) {
     int* next_id_p = (int*) mapshm(next_id_shm);
     *next_id_p = SERVER_FIRST_ID;
 
-    // Lanzo workers    ///TODO
-    /*for (int i = 0; i < CANT_SERVER_WORKERS; ++i) {
+    // Lanzo workers
+    for (int i = 0; i < CANT_SERVER_WORKERS; ++i) {
         if (fork() == 0) {
-            exec l o v(...);
+            execl("./server-worker", "./server-worker", (char *) NULL);
             exit(0);
         }
-    }*/
+    }
 
     // Inicio conexión esperando clientes
     int sfd = create_server_socket(PUERTO_SERVER);
@@ -95,7 +95,6 @@ void requestHandler(int cfd, int q_req, int q_rep) {
         } else {
             log_debug("server-requestHandler: Recibí mensaje por red:");//
             m.show();//
-            ///Cambiar algo de m? mtype o id? Y si es CREATE_MSG?
             m.mtype = cfd;  ///TODO: Chequear esto de cfd como mtype
             // Reenvío mensaje a algún worker por cola interna
             qsend(q_req, &m, sizeof(m));

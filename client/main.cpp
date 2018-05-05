@@ -109,7 +109,7 @@ int subscribeToTopic(int id, char* topic) {
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error? Ej.: topic no existe
+    ///Condiciones de error?
     std::cout << "Suscripto.";
     return 0;
 }
@@ -120,7 +120,7 @@ int receiveMessage(int id) {
     m.type = RECV_MSG;
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error? Ej.: topic no existe
+    ///Condiciones de error?
     std::cout << "Topic: " << m.topic << std::endl;
     std::cout << m.msg << std::endl;
     return 0;
@@ -132,7 +132,7 @@ int destroyUser(int id) {
     m.type = DESTROY_MSG;
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error? Ej.: topic no existe
+    ///Condiciones de error? Ej.: usuario no existe
     std::cout << "Usuario " << m.id << " eliminado." << std::endl;
     return 0;
 }

@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
         while ( wait(NULL) > 0 );
     }
     return 0;
-    ///TODO: Handler de SIGINT que cierre conexión y queues. Tengo que hacerlo desde main para cerrar las otras???
+    ///TODO: Handler de SIGINT tengo que hacerlo desde main para cerrar las otras???
     ///TODO: Me falta chequear fork()<0 (fail). En todos lados.
     ///TODO: handler de reqs de recv que responda enviando a q_rep el primer anuncio de dicho id? O lo dejo así?
     ///Comenzar user id desde algo distinto de 1, como 101
@@ -112,6 +112,7 @@ void replier(int q_rep, int q_storedmsg, int sfd) {
                     qsend(q_rep, &m, sizeof(m));
                     break;
                 case RECV_MSG:      // Almaceno mensaje
+                    m.mtype = m.id; ///Dejo el global, que me llegó? O ya meto el local? Mirar justo antes del switch
                     qsend(q_storedmsg, &m, sizeof(m));
                     break;
                 case DESTROY_MSG:   // Borra del mappeo y reenvía retorno al usuario
@@ -150,7 +151,7 @@ void SIGINT_handler(int signum) {
     if (signum != SIGINT) {
         log_warn("client: Atrapé señal distinta de SIGINT: " + signum);
     } else {
-        log_debug("client: SIGINT");
+        log_debug("client: SIGINT");//
         sig_quit = true;
     }
 }

@@ -62,10 +62,8 @@ int main(int argc, char* argv[]) {
         } else {
             log_debug("worker: Recibí mensaje por cola:");//
             m.show();//
-            ///Agarrar algo?
-            ////m.mtype, m.type, m.id, m.topic, m.msg
 
-            switch (m.type) {   ///TODO: Limpiar diviendo en funciones?
+            switch (m.type) {   ///TODO: Limpiar dividiendo en funciones?
                 case CREATE_MSG:    // Entrego y registro nuevo id
                     {
                         p(next_id_sem); {
@@ -106,7 +104,7 @@ int main(int argc, char* argv[]) {
                             ///TODO: unlock?
                         } else {
                             log_info("worker: sub tiene id inexistente");
-                            ///TODO: Tengo q avisar del error de alguna manera
+                            ///TODO: Tengo q avisar del error de alguna manera. También analizar qué otros errores
                         }
                     }
                     break;
@@ -137,14 +135,14 @@ int main(int argc, char* argv[]) {
                             t_ifs.close();
                         } else {
                             log_info("worker: pub tiene id inexistente; ignoro?");
-                            ///TODO: Tengo q avisar del error de alguna manera
+                            ///TODO: Tengo q avisar del error de alguna manera. También analizar qué otros errores
                         }
                     }
                     break;
 
                 case RECV_MSG:
                     log_error("worker: Me llegó un RECV_MSG, no debería pasar");
-                    continue; ///??? No debería pasar
+                    continue;
 
                 case DESTROY_MSG:   // Si id existe, lo desuscribo de cada topic y borro
                     {
@@ -181,7 +179,7 @@ int main(int argc, char* argv[]) {
                             ids.erase(id_it);
                         } else {
                             log_info("worker: destroy tiene id inexistente");
-                            ///TODO: Tengo q avisar del error de alguna manera
+                            ///TODO: Tengo q avisar del error de alguna manera. También analizar qué otros errores
                         }
                     }
                     break;
@@ -198,4 +196,5 @@ int main(int argc, char* argv[]) {
     }
 
     unmapshm(next_id_p);
+    return 0;
 }
