@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <csignal>
 #include "../common/message.h"
 extern "C" {
 #include "../common/ipc/msg_queue.h"

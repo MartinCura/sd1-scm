@@ -34,7 +34,7 @@ int getshm(int id) {
     return shm_id;
 }
 
-void* map(int id) {
+void* mapshm(int id) {
     void* addr = shmat(id, NULL, 0);
     if (addr == (void*) -1) {
         log_error("No se pudo mapear la memoria");
@@ -43,7 +43,7 @@ void* map(int id) {
     return addr;
 }
 
-int unmap(void* addr) {
+int unmapshm(void* addr) {
     int res = shmdt(addr);
     if (res < 0) {
         log_error("Error unmapping shared memory");

@@ -13,14 +13,20 @@
 extern "C" {
 #include "../common/ipc/msg_queue.h"
 #include "../common/ipc/socket.h"
+#include "../common/ipc/sig.h"
 #include "../common/log/log.h"
 }
+
+bool sig_quit = false;
 
 int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id);
 void requester(int q_req, int q_rep, int q_storedmsg, int sfd);
 void replier(int q_rep, int q_storedmsg, int sfd);
+void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
+    register_handler(SIGINT_handler);
+
     // Conecto con el servidor, obtengo el socket file descriptor
     int sfd = create_client_socket(IP_SERVER, PUERTO_SERVER);
     if (sfd < 0) {
@@ -62,7 +68,7 @@ int main(int argc, char* argv[]) {
 void requester(int q_req, int q_rep, int q_storedmsg, int sfd) { // No sé si me encanta esta solución
     struct msg_t m;
 
-    while (true) {
+    while (!sig_quit) {
         log_debug("broker-requester: Espero próximo mensaje en q_req");//
         if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
@@ -84,7 +90,7 @@ void requester(int q_req, int q_rep, int q_storedmsg, int sfd) { // No sé si me
 void replier(int q_rep, int q_storedmsg, int sfd) {
     struct msg_t m;
 
-    while (true) {
+    while (!sig_quit) {
         // Recibo mensaje del servidor por red
         log_debug("broker-replier: Espero próximo mensaje por red del servidor");//
         if (recv(sfd, &m, sizeof(m), 0) < 0) {
@@ -131,5 +137,16 @@ int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id) {
     } else {
         log_warn("broker-requester: Error al pedir un mensaje de q_stored_msg. Sigo");
         return -1;
+    }
+}
+
+
+///Por cómo está configurada sig.c, solo atrapa SIGINT
+void SIGINT_handler(int signum) {
+    if (signum != SIGINT) {
+        log_warn("client: Atrapé señal distinta de SIGINT: " + signum);
+    } else {
+        log_debug("client: SIGINT");
+        sig_quit = true;
     }
 }

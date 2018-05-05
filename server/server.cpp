@@ -5,6 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <csignal>
 #include "../common/constants.h"
 #include "../common/message.h"
 extern "C" {
@@ -13,12 +14,18 @@ extern "C" {
 #include "../common/ipc/socket.h"
 #include "../common/ipc/shm.h"
 #include "../common/ipc/semaphore.h"
+#include "../common/ipc/sig.h"
 }
+
+bool sig_quit = false;
 
 void requestHandler(int cfd, int q_req, int q_rep);
 void replyHandler(int cfd, int q_rep);
+void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
+    register_handler(SIGINT_handler);
+
     // Creo colas internas
     int q_req = qcreate(SERVER_REQ_Q_ID);
     int q_rep = qcreate(SERVER_REP_Q_ID);
@@ -45,7 +52,7 @@ int main(int argc, char* argv[]) {
     // Inicio conexión esperando clientes
     int sfd = create_server_socket(PUERTO_SERVER);
 
-    while (true) {
+    while (!sig_quit) {
         // Espero clientes que se conecten; obtengo el socket apropiado
         int cfd = accept_client(sfd);
 
@@ -73,7 +80,7 @@ void requestHandler(int cfd, int q_req, int q_rep) {
     }
     struct msg_t m;
 
-    while (true) {
+    while (!sig_quit) {
         // Recibo mensaje del cliente por red
         log_debug("server-requestHandler: Espero próximo mensaje por red del cliente");//
         if (recv(cfd, &m, sizeof(m), 0) < 0) {
@@ -92,7 +99,7 @@ void requestHandler(int cfd, int q_req, int q_rep) {
 void replyHandler(int cfd, int q_rep) {
     struct msg_t m;
 
-    while (true) {
+    while (!sig_quit) {
         log_debug("server-requestHandler: Espero próximo mensaje en q_rep");//
         if (qrecv(q_rep, &m, sizeof(m), cfd) < 0) { ///TODO: Chequear esto de cfd como mtype
             log_warn("server-requestHandler: Error al recibir un mensaje de q_rep. Sigo intentando");
@@ -106,5 +113,15 @@ void replyHandler(int cfd, int q_rep) {
                 log_error("server-requestHandler: Error al enviar mensaje al cliente");
             }
         }
+    }
+}
+
+///Por cómo está configurada sig.c, solo atrapa SIGINT
+void SIGINT_handler(int signum) {
+    if (signum != SIGINT) {
+        log_warn("client: Atrapé señal distinta de SIGINT: " + signum);
+    } else {
+        log_debug("client: SIGINT");
+        sig_quit = true;
     }
 }

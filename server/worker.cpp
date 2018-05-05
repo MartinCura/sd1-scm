@@ -6,6 +6,7 @@
 #include <fstream>
 #include <map>
 #include <cstring>
+#include <csignal>
 #include "../common/constants.h"
 #include "../common/message.h"
 extern "C" {
@@ -13,6 +14,19 @@ extern "C" {
 #include "../common/ipc/msg_queue.h"
 #include "../common/ipc/semaphore.h"
 #include "../common/ipc/shm.h"
+#include "../common/ipc/sig.h"
+}
+
+bool sig_quit = false;
+
+///Por cómo está configurada sig.c, solo atrapa SIGINT
+void SIGINT_handler(int signum) {
+    if (signum != SIGINT) {
+        log_warn("client: Atrapé señal distinta de SIGINT: " + signum);
+    } else {
+        log_debug("client: SIGINT");
+        sig_quit = true;
+    }
 }
 
 std::string getTopicFn(std::string topic) {
@@ -24,6 +38,8 @@ std::string getSubFn(int id) {
 }
 
 int main(int argc, char* argv[]) {
+    register_handler(SIGINT_handler);
+
     // Obtiene colas
     int q_req = qget(SERVER_REQ_Q_ID);
     int q_rep = qget(SERVER_REP_Q_ID);
@@ -37,7 +53,7 @@ int main(int argc, char* argv[]) {
     int next_id_shm = getshm(SERVER_NEXT_ID_SHM_ID);
     int* next_id_p = (int*) mapshm(next_id_shm);
 
-    while (true) {
+    while (!sig_quit) {
         struct msg_t m;
         // Obtengo próximo mensaje que necesite ser procesado
         if (qrecv(q_req, &m, sizeof(m), 0)) {

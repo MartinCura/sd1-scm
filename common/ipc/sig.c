@@ -8,5 +8,3 @@ void register_handler(void (*handler)(int)) {
     sa.sa_handler = handler;
     sigaction(SIGINT, &sa, 0);
 }
-///TODO: Agregar sig_handler a [ main, broker, server, worker ]
-:"@
