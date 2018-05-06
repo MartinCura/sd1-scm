@@ -26,15 +26,18 @@ Idea para flujo de ids:
 En general:
 	client <-------> broker <-----||----> handlers <-------> workers
 mtype       loc        	loc/Z			Z/cfd	        cfd
-id          loc         loc/glob	       glob	       glob
+id         ±loc        ±loc/±glob	      ±glob	      ±glob
 
 En CREATE():
 	client --------> broker ------||----> handlers --------> workers
 mtype         X        	   X			X/cfd	        cfd
-id            0           0/loc		       	loc		loc
+id          loc           loc		       	loc		loc
 	client <-------- broker <-----||----- handlers <-------- workers
 mtype       loc        	loc/Z			Z/cfd	        cfd
-id          loc         loc/glob	        glob       glob/loc
+id         ±loc          ±loc		        loc       	loc
+msg	    loc		loc/glob		glob	       glob
 
 X puede ser cualquier cosa.
 Z puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.
+
+Devolver id negativo significa error. Detalle en msg.	

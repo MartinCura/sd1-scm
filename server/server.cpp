@@ -1,7 +1,6 @@
 //
 // Created by martin on 30/04/18.
 //
-
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -76,13 +75,12 @@ int main(int argc, char* argv[]) {
     delshm(next_id_shm);
     delsem(next_id_sem);
     return 0;
-    ///TODO: Ppalmente acá, handlear bien que hayan cerrado los sockets
 }
 
 void requestHandler(int cfd, int q_req, int q_rep) {
     if (fork() == 0) {
         replyHandler(cfd, q_rep);
-        return;
+        exit(0);
     }
     struct msg_t m;
 
@@ -95,7 +93,7 @@ void requestHandler(int cfd, int q_req, int q_rep) {
         } else {
             log_debug("server-requestHandler: Recibí mensaje por red:");//
             m.show();//
-            m.mtype = cfd;  ///TODO: Chequear esto de cfd como mtype
+            m.mtype = cfd;
             // Reenvío mensaje a algún worker por cola interna
             qsend(q_req, &m, sizeof(m));
         }
@@ -107,14 +105,13 @@ void replyHandler(int cfd, int q_rep) {
 
     while (!sig_quit) {
         log_debug("server-requestHandler: Espero próximo mensaje en q_rep");//
-        if (qrecv(q_rep, &m, sizeof(m), cfd) < 0) { ///TODO: Chequear esto de cfd como mtype
+        if (qrecv(q_rep, &m, sizeof(m), cfd) < 0) {
             if (sig_quit) break;
             log_warn("server-requestHandler: Error al recibir un mensaje de q_rep. Sigo intentando");
         } else {
             log_debug("server-requestHandler: Recibí por cola reply de un worker:");//
             m.show();//
-            ///Cambiar algo de m? mtype o id? Y si es CREATE_MSG?
-            m.mtype = m.id;  ///Algún propósito?
+            m.mtype = 1; // Oculto server-side info
             // Reenvío mensaje al cliente por red
             if (send(cfd, &m, sizeof(m), 0) < 0) {
                 log_error("server-requestHandler: Error al enviar mensaje al cliente");
@@ -123,12 +120,11 @@ void replyHandler(int cfd, int q_rep) {
     }
 }
 
-///Por cómo está configurada sig.c, solo atrapa SIGINT
 void SIGINT_handler(int signum) {
     if (signum != SIGINT) {
-        log_warn("client: Atrapé señal distinta de SIGINT: " + signum);
+        log_error("server: Atrapé señal distinta de SIGINT: " + signum);
     } else {
-        log_debug("client: SIGINT");
+        log_info("server: SIGINT");
         sig_quit = true;
     }
 }

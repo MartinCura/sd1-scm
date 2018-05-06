@@ -67,6 +67,11 @@ Otros TODOs:
 - Revisar abstracciones ipc para que sean más claras
 - Revisar persistencia
 - Hacer diagramas (de secuencia, de ¿persistencia?)
+- Chequear returns de creasem/getsem/creashm/getshm...
+- Chequear returns de forks
+- Principalmente en server, handlear bien que se hayan cerrado los sockets
+- client: Podría hacer un mejor chequeo de input
+- client: (opcional) autocompletado de terminal para los comandos
 
 
 DUDAS 2:
@@ -78,5 +83,20 @@ DUDAS 2:
 6. Cómo lockear archivos (individualmente) desde los workers, clara. Esto podría hacerlo cambiando los streams por funciones de C
 7. Broker: compartir el map de ids entre el requester y el replier. Array de pairs? de tuples?
 8. Cómo identificar al usuario para devolverle su id local? Posible: creo id falso rnd para usar como mtype/id, BL me dice si ya está en uso, en cuyo caso reintento con otro rnd.
-9. Cómo avisar de errores? Podría mandar el error en id como valores negativos. En msg puedo mandar descripción del error.
+9. Cómo avisar de errores? Podría mandar el error en id como valores negativos; y en msg puedo mandar descripción del error.
 10. Interesa quién publicó un mensaje?
+
+AUTORESPUESTAS
+1. Entiendo que no; no informo que el topic es nuevo
+2. Uso el fd de la conexión
+3. No necesito
+4. Usando graceful quit mediante señales y handlers, duh
+5. La hice igual; la llamé sub/
+6. No importa [todavía]; cambiar las funciones es feísimo
+7. Fixed-size array de int's
+8. Moví la asignación de nuevo id al client, con la ipc necesaria
+9. Así mismo lo hice
+10. Al parecer no
+
+DUDAS 2 REDUX: 1, 5, 6, 10
+

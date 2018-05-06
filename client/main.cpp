@@ -1,9 +1,15 @@
+//
+// Created by martin on 27/04/18.
+//
 #include <iostream>
 #include <cstring>
 #include <csignal>
 #include "../common/message.h"
 extern "C" {
+#include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
+#include "../common/ipc/semaphore.h"
+#include "../common/ipc/shm.h"
 }
 
 void showHelp(char* argv[]);
@@ -28,13 +34,19 @@ int main(int argc, char* argv[]) {
         if (argc != 5) {
             std::cerr << "PUBlish requiere 3 argumentos" << std::endl;
             return 1;
+        } else if (atoi(argv[2]) <= 0) {
+            std::cerr << "id debe ser un número positivo" << std::endl;
+            return 2;
         }
-        return publishMessage(atoi(argv[2]), argv[3], argv[4]); ///TODO: Mejor chequeo de errores con argv[2]
+        return publishMessage(atoi(argv[2]), argv[3], argv[4]);
 
     } else if (cmd == "SUB" || cmd == "s") {
         if (argc != 4) {
             std::cerr << "SUBscribe requiere 2 argumentos" << std::endl;
             return 1;
+        } else if (atoi(argv[2]) <= 0) {
+            std::cerr << "id debe ser un número positivo" << std::endl;
+            return 2;
         }
         return subscribeToTopic(atoi(argv[2]), argv[3]);
 
@@ -42,6 +54,9 @@ int main(int argc, char* argv[]) {
         if (argc != 3) {
             std::cerr << "RECeiVe requiere 1 argumento" << std::endl;
             return 1;
+        } else if (atoi(argv[2]) <= 0) {
+            std::cerr << "id debe ser un número positivo" << std::endl;
+            return 2;
         }
         return receiveMessage(atoi(argv[2]));
 
@@ -49,6 +64,9 @@ int main(int argc, char* argv[]) {
         if (argc != 3) {
             std::cerr << "DESTROY requiere 1 argumento" << std::endl;
             return 1;
+        } else if (atoi(argv[2]) <= 0) {
+            std::cerr << "id debe ser un número positivo" << std::endl;
+            return 2;
         }
         return destroyUser(atoi(argv[2]));
 
@@ -57,10 +75,10 @@ int main(int argc, char* argv[]) {
         return 0;
 
     } else {
+        std::cout << "Comando no reconocido" << std::endl;
         showHelp(argv);
         return 1;
     }
-    /// TODO opcional: autocompletado de terminal para los comandos
 }
 
 
@@ -68,11 +86,33 @@ void showHelp(char* argv[]) {
     std::cout << "Usage: " << argv[0] << " COMMAND" << std::endl
               << "Commands:" << std::endl
               << '\t' << "CREATE / c"  << '\t' << "Crear un usuario; devuelve su id" << std::endl
-              << '\t' << "PUB / p"     << '\t' << "Publicar a un topic (en caso de que no exista lo crea)" << std::endl
-              << '\t' << "SUB / s"     << '\t' << "Suscribirse a un topic" << std::endl
-              << '\t' << "RECV / r"    << '\t' << "Recibir próximo mensaje de cualquier topic" << std::endl
-              << '\t' << "DESTROY / d" << '\t' << "Eliminar un usuario" << std::endl
+              << '\t' << "PUB / p"     << '\t' << "(id, msg, topic)\tPublicar a un topic (en caso de que no exista lo crea)" << std::endl
+              << '\t' << "SUB / s"     << '\t' << "(id, topic)\tSuscribirse a un topic" << std::endl
+              << '\t' << "RECV / r"    << '\t' << "(id)\tRecibir próximo mensaje de cualquier topic" << std::endl
+              << '\t' << "DESTROY / d" << '\t' << "(id)\tEliminar un usuario" << std::endl
               << '\t' << "HELP / h"    << '\t' << "Mostrar esta ayuda" << std::endl;
+}
+
+bool errorCheck(struct msg_t m) {
+    if (m.id > 0) {
+        return false;
+    } else if (!strcmp(m.msg, "")) {
+        std::cout << "Error: " << m.msg;
+    }
+    return true;
+}
+
+int generarNuevoId() {
+    int nuevo_id;
+    int ids_sem = getsem(LOCAL_IDS_SEM_ID);
+    int ids_shm = getshm(LOCAL_IDS_SHM_ID);
+    int* ids_p = (int*) mapshm(ids_shm);
+    // Obtengo nuevo id
+    p(ids_sem); {
+        nuevo_id = ids_p[0]++;
+    } v(ids_sem);
+    unmapshm(ids_p);
+    return nuevo_id;
 }
 
 
@@ -80,12 +120,19 @@ void showHelp(char* argv[]) {
 
 int createUser() {
     struct msg_t m;
-    ///m.mtype = ?
-    m.type = CREATE_MSG;
-    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-    ///qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), ???); RESOLVER cómo identificarlo la 1ra vez
-    ///Condiciones de error?
-    std::cout << "Usuario creado. Tu id es " << m.id << "." << std::endl;
+    m.id = generarNuevoId();
+    if (m.id >= LOCAL_MAX_ID) {
+        log_warn("client: Superé cantidad máxima de ids");
+        m.id = -1;
+        strcpy(m.msg, "Cantidad permitida de usuarios locales superada");
+    } else {
+        m.mtype = 1;
+        m.type = CREATE_MSG;
+        qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
+        qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), m.id);
+    }
+    if (errorCheck(m)) return -1;
+    std::cout << "Usuario creado. Su id es " << m.id << "." << std::endl;
     return 0;
 }
 
@@ -97,7 +144,7 @@ int publishMessage(int id, char* msg, char* topic) {
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error?
+    if (errorCheck(m)) return -1;
     std::cout << "Mensaje publicado.";
     return 0;
 }
@@ -109,7 +156,7 @@ int subscribeToTopic(int id, char* topic) {
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error?
+    if (errorCheck(m)) return -1;
     std::cout << "Suscripto.";
     return 0;
 }
@@ -120,9 +167,11 @@ int receiveMessage(int id) {
     m.type = RECV_MSG;
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error?
+    if (errorCheck(m)) return -1;
+    std::cout << "----------" << std::endl;
     std::cout << "Topic: " << m.topic << std::endl;
     std::cout << m.msg << std::endl;
+    std::cout << "----------" << std::endl;
     return 0;
 }
 
@@ -132,7 +181,7 @@ int destroyUser(int id) {
     m.type = DESTROY_MSG;
     qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
     qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
-    ///Condiciones de error? Ej.: usuario no existe
+    if (errorCheck(m)) return -1;
     std::cout << "Usuario " << m.id << " eliminado." << std::endl;
     return 0;
 }
