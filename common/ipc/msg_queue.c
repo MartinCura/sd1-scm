@@ -35,7 +35,7 @@ int qget(int id) {
 
 // Enviar un mensaje por la cola de mensajes
 void qsend(int id, const void *msgp, size_t msgsz) {
-    if(msgsnd(id,msgp,msgsz-sizeof(long),0)==-1){
+    if (msgsnd(id,msgp,msgsz-sizeof(long),0) == -1) {
         log_error("Error sending message over queue");
     }
 }
@@ -43,7 +43,7 @@ void qsend(int id, const void *msgp, size_t msgsz) {
 // Recibir un mensaje con tipo type por la cola de mensajes
 ssize_t qrecv(int id, void *msgp, size_t msgsz, long mtype) {
     ssize_t res = msgrcv(id, msgp, msgsz-sizeof(long), mtype, 0);
-    if (res < 0) {
+    if (res < 0 && errno != EINTR) {
         log_error("Error receiving message over queue");
     }
     return res;
@@ -52,7 +52,7 @@ ssize_t qrecv(int id, void *msgp, size_t msgsz, long mtype) {
 // Recibir un mensaje con tipo type por la cola de mensajes, o salir inmediatamente si no hay
 ssize_t qrecv_nowait(int id, void *msgp, size_t msgsz, long mtype) {
     ssize_t res = msgrcv(id, msgp, msgsz-sizeof(long), mtype, IPC_NOWAIT);
-    if (res < 0 && errno != ENOMSG) {
+    if (res < 0 && errno != EINTR && errno != ENOMSG) {
         log_error("Error receiving message over queue");
     }
     return res;

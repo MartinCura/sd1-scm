@@ -12,6 +12,8 @@ extern "C" {
 #include "../common/ipc/shm.h"
 }
 
+int q_req, q_rep;
+
 void showHelp(char* argv[]);
 int createUser();
 int publishMessage(int id, char* msg, char* topic);
@@ -21,11 +23,19 @@ int destroyUser(int id);
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Cantidad de argumentos incorrecta" << std::endl;
+        std::cerr << "Cantidad de argumentos incorrecta" << std::endl << std::endl;
         showHelp(argv);
         return 1;
     }
     std::string cmd(argv[1]);
+
+    // Obtengo colas para comunicarme con el broker local
+    q_req = qget(LOCAL_REQ_Q_ID);
+    q_rep = qget(LOCAL_REP_Q_ID);
+    if (q_req < 0 || q_rep < 0) {
+        log_error("client: Error al gettear msg queue. Freno");
+        exit(-1);
+    }
 
     if (cmd == "CREATE" || cmd == "c") {
         return createUser();
@@ -75,30 +85,31 @@ int main(int argc, char* argv[]) {
         return 0;
 
     } else {
-        std::cout << "Comando no reconocido" << std::endl;
+        std::cout << "Comando no reconocido" << std::endl << std::endl;
         showHelp(argv);
         return 1;
     }
+    ///TODO: Errores de comunicación no son detectados
 }
 
 
 void showHelp(char* argv[]) {
     std::cout << "Usage: " << argv[0] << " COMMAND" << std::endl
               << "Commands:" << std::endl
-              << '\t' << "CREATE / c"  << '\t' << "Crear un usuario; devuelve su id" << std::endl
-              << '\t' << "PUB / p"     << '\t' << "(id, msg, topic)\tPublicar a un topic (en caso de que no exista lo crea)" << std::endl
-              << '\t' << "SUB / s"     << '\t' << "(id, topic)\tSuscribirse a un topic" << std::endl
-              << '\t' << "RECV / r"    << '\t' << "(id)\tRecibir próximo mensaje de cualquier topic" << std::endl
-              << '\t' << "DESTROY / d" << '\t' << "(id)\tEliminar un usuario" << std::endl
-              << '\t' << "HELP / h"    << '\t' << "Mostrar esta ayuda" << std::endl;
+              << '\t' << "CREATE  / c" << "\t\t\t" << "Crear un usuario; devuelve su id" << std::endl
+              << '\t' << "PUB     / p (id, msg, topic)" << '\t' << "Publicar a un topic (en caso de que no exista lo crea)" << std::endl
+              << '\t' << "SUB     / s (id, topic)" << "\t\t" << "Suscribirse a un topic" << std::endl
+              << '\t' << "RECV    / r (id)" << "\t\t" << "Recibir próximo mensaje de cualquier topic" << std::endl
+              << '\t' << "DESTROY / d (id)" << "\t\t" << "Eliminar un usuario" << std::endl
+              << '\t' << "HELP    / h" << "\t\t\t" << "Mostrar esta ayuda" << std::endl;
 }
 
 bool errorCheck(struct msg_t m) {
     if (m.id > 0) {
         return false;
-    } else if (!strcmp(m.msg, "")) {
-        std::cout << "Error: " << m.msg;
-    }
+    }// else if (!strcmp(m.msg, "")) {
+    std::cout << "Error: " << m.msg;
+    //}
     return true;
 }
 
@@ -128,8 +139,8 @@ int createUser() {
     } else {
         m.mtype = 1;
         m.type = CREATE_MSG;
-        qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-        qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), m.id);
+        qsend(q_req, &m, sizeof(m));
+        qrecv(q_rep, &m, sizeof(m), m.id);
     }
     if (errorCheck(m)) return -1;
     std::cout << "Usuario creado. Su id es " << m.id << "." << std::endl;
@@ -142,10 +153,10 @@ int publishMessage(int id, char* msg, char* topic) {
     m.type = PUB_MSG;
     strncpy(m.msg, msg, MAX_MSG_LENGTH);
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
-    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    qsend(q_req, &m, sizeof(m));
+    qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
-    std::cout << "Mensaje publicado.";
+    std::cout << "Mensaje publicado." << std::endl;
     return 0;
 }
 
@@ -154,10 +165,10 @@ int subscribeToTopic(int id, char* topic) {
     m.mtype = m.id = id;
     m.type = SUB_MSG;
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
-    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    qsend(q_req, &m, sizeof(m));
+    qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
-    std::cout << "Suscripto.";
+    std::cout << "Suscripto." << std::endl;
     return 0;
 }
 
@@ -165,8 +176,8 @@ int receiveMessage(int id) {
     struct msg_t m;
     m.mtype = m.id = id;
     m.type = RECV_MSG;
-    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    qsend(q_req, &m, sizeof(m));
+    qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
     std::cout << "----------" << std::endl;
     std::cout << "Topic: " << m.topic << std::endl;
@@ -179,8 +190,8 @@ int destroyUser(int id) {
     struct msg_t m;
     m.mtype = m.id = id;
     m.type = DESTROY_MSG;
-    qsend(LOCAL_REQ_Q_ID, &m, sizeof(m));
-    qrecv(LOCAL_REP_Q_ID, &m, sizeof(m), id);
+    qsend(q_req, &m, sizeof(m));
+    qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
     std::cout << "Usuario " << m.id << " eliminado." << std::endl;
     return 0;

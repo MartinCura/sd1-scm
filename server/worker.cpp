@@ -44,6 +44,8 @@ void setError(struct msg_t *m, const char *s) {
 int main(int argc, char* argv[]) {
     register_handler(SIGINT_handler);
 
+//    int q_req = qcreate(SERVER_REQ_Q_ID);//
+//    int q_rep = qcreate(SERVER_REP_Q_ID);//
     // Obtiene colas
     int q_req = qget(SERVER_REQ_Q_ID);
     int q_rep = qget(SERVER_REP_Q_ID);
@@ -53,6 +55,8 @@ int main(int argc, char* argv[]) {
     }
     // Mappeo id local-global; shm con id siguiente y sem para acceder a ella
     std::map<int,int> ids;      // Concurrencia: Eventualmente mover a shm. Alternativa: hacer workers con threads
+//    int next_id_sem = creasem(SERVER_NEXT_ID_SEM_ID);//
+//    int next_id_shm = creashm(SERVER_NEXT_ID_SHM_ID, sizeof(int));//
     int next_id_sem = getsem(SERVER_NEXT_ID_SEM_ID);
     int next_id_shm = getshm(SERVER_NEXT_ID_SHM_ID);
     int* next_id_p = (int*) mapshm(next_id_shm);
@@ -60,7 +64,7 @@ int main(int argc, char* argv[]) {
     while (!sig_quit) {
         struct msg_t m;
         // Obtengo próximo mensaje que necesite ser procesado
-        if (qrecv(q_req, &m, sizeof(m), 0)) {
+        if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
             if (sig_quit) break;
             log_error("worker: Error al recibir mensaje por cola. Sigo");
             continue;

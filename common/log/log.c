@@ -117,7 +117,7 @@ void log_log(int level, const char *file, int line, const char *fmt, ...) {
         vfprintf(stdout, fmt, args);
         va_end(args);
         if (level == LOG_ERROR) {
-            fprintf(stdout, " Syscall error: %s.", strerror(errno));
+            fprintf(stdout, " ~ Syscall error: %s.", strerror(errno));
         }
         fprintf(stdout, "\n");
     }

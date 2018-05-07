@@ -16,6 +16,7 @@ extern "C" {
 #include "../common/ipc/sig.h"
 }
 
+//std::string procn = "server";
 bool sig_quit = false;
 
 void requestHandler(int cfd, int q_req, int q_rep);
@@ -23,6 +24,7 @@ void replyHandler(int cfd, int q_rep);
 void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
+    log_info("server: COMIENZO");
     register_handler(SIGINT_handler);
 
     // Creo colas internas
@@ -40,6 +42,9 @@ int main(int argc, char* argv[]) {
     int* next_id_p = (int*) mapshm(next_id_shm);
     *next_id_p = SERVER_FIRST_ID;
 
+    // Inicio conexión esperando clientes
+    int sfd = create_server_socket(PUERTO_SERVER);
+
     // Lanzo workers
     for (int i = 0; i < CANT_SERVER_WORKERS; ++i) {
         if (fork() == 0) {
@@ -48,15 +53,13 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Inicio conexión esperando clientes
-    int sfd = create_server_socket(PUERTO_SERVER);
-
     int cfd;
     while (!sig_quit) {
         // Espero clientes que se conecten; obtengo el socket apropiado
         cfd = accept_client(sfd);
         if (cfd >= 0) {
             // Corro procesos handlers para el nuevo cliente conectado
+            log_info("server: Nuevo cliente, lanzo handlers");
             if (fork() == 0) {
                 requestHandler(cfd, q_req, q_rep);
                 close(cfd);
@@ -74,21 +77,26 @@ int main(int argc, char* argv[]) {
     unmapshm(next_id_p);
     delshm(next_id_shm);
     delsem(next_id_sem);
+    log_info("server: TERMINO");
     return 0;
 }
 
 void requestHandler(int cfd, int q_req, int q_rep) {
-    if (fork() == 0) {
+//    procn = "server-requestHandler";
+    int p_rh = fork();
+    if (p_rh == 0) {
         replyHandler(cfd, q_rep);
         exit(0);
     }
+    ssize_t r;
     struct msg_t m;
 
     while (!sig_quit) {
         // Recibo mensaje del cliente por red
-        log_debug("server-requestHandler: Espero próximo mensaje por red del cliente");//
-        if (recv(cfd, &m, sizeof(m), 0) < 0) {
-            if (sig_quit) break;
+        log_debug("server-requestHandler: Espero por red próximo mensaje del cliente");//
+        r = recv(cfd, &m, sizeof(m), 0);
+        if (r <= 0) {
+            if (r == 0 || sig_quit) break;
             log_error("server-requestHandler: Error al recibir mensaje del cliente por red. Sigo");
         } else {
             log_debug("server-requestHandler: Recibí mensaje por red:");//
@@ -98,26 +106,29 @@ void requestHandler(int cfd, int q_req, int q_rep) {
             qsend(q_req, &m, sizeof(m));
         }
     }
+    kill(p_rh, SIGINT);
+    log_debug("server-requestHandler: Termino");//
 }
 
 void replyHandler(int cfd, int q_rep) {
     struct msg_t m;
 
     while (!sig_quit) {
-        log_debug("server-requestHandler: Espero próximo mensaje en q_rep");//
+        log_debug("server-replyHandler: Espero próximo mensaje en q_rep");//
         if (qrecv(q_rep, &m, sizeof(m), cfd) < 0) {
             if (sig_quit) break;
-            log_warn("server-requestHandler: Error al recibir un mensaje de q_rep. Sigo intentando");
+            log_warn("server-replyHandler: Error al recibir un mensaje de q_rep. Sigo intentando");
         } else {
-            log_debug("server-requestHandler: Recibí por cola reply de un worker:");//
+            log_debug("server-replyHandler: Recibí por cola reply de un worker:");//
             m.show();//
             m.mtype = 1; // Oculto server-side info
             // Reenvío mensaje al cliente por red
             if (send(cfd, &m, sizeof(m), 0) < 0) {
-                log_error("server-requestHandler: Error al enviar mensaje al cliente");
+                log_error("server-replyHandler: Error al enviar mensaje al cliente");
             }
         }
     }
+    log_debug("server-replyHandler: Termino");//
 }
 
 void SIGINT_handler(int signum) {

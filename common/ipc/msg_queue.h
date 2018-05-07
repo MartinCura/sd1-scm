@@ -1,7 +1,3 @@
-//
-// Created by gaston on 22/04/18.
-//
-
 #ifndef BROKER_MSG_QUEUE_H
 #define BROKER_MSG_QUEUE_H
 

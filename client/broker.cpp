@@ -26,6 +26,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd);
 void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
+    log_info("broker: Comienzo");
     register_handler(SIGINT_handler);
 
     // Conecto con el servidor, obtengo el socket file descriptor
@@ -40,6 +41,7 @@ int main(int argc, char* argv[]) {
     int q_storedmsg = qcreate(STORED_MESSAGES_ID);
     if (q_req < 0 || q_rep < 0 || q_storedmsg < 0) {
         log_error("broker: Error al crear msg queue. Freno");
+        close(sfd);
         exit(-1);
     }
     // Creo shm para ids globales y próximo id, y sem para acceder
@@ -67,17 +69,20 @@ int main(int argc, char* argv[]) {
         // Espero a que terminen y cierro los recursos
         } else {
             while (!sig_quit);    ///Legal?
-            kill(p_req, SIGINT);    ///Inseguro si hace falta. Chequeable
-            kill(p_rep, SIGINT);
+            //kill(p_req, SIGINT);    ///Inseguro si hace falta. Chequeable
+            //kill(p_rep, SIGINT);
             close(sfd);
             qdel(q_req);
             qdel(q_rep);
             qdel(q_storedmsg);
             unmapshm(ids_p);
+            log_debug("broker: Cerré conexión, colas, y shm");//
             // Espero a que terminen todos los procesos hijos
             while (wait(NULL) > 0);
+            log_debug("broker: Terminaron hijos, borro ipc");//
             delshm(ids_shm);
             delsem(ids_sem);
+            log_info("broker: TERMINO");
         }
     }
     return 0;
@@ -95,22 +100,12 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
         } else if (m.type == RECV_MSG) {
             if (devolverMensajeRecibido(q_storedmsg, &m, m.id)) { ///O lo hago de otra manera? Señal al replier?
                 m.mtype = abs(m.id);
+                m.show();//
                 qsend(q_rep, &m, sizeof(m));
             }
         } else {
-//            // Cambio id local por global; si es nuevo lo creo, y a falta de él por 0
-//            if (m.type == CREATE_MSG) {
-//                p(ids_sem); {
-//                    m.id = ids_p[0]++;
-//                } v(ids_sem);
-//                if (m.id >= LOCAL_MAX_ID) {
-//                    log_warn("broker-requester: Superé cantidad máxima de ids");
-//                    m.id = -1;
-//                    strcpy(m.msg, "Cantidad de usuarios locales superada");
-//                    qsend(q_rep, &m, sizeof(m));
-//                    continue;
-//                }
-//            } else {
+            log_debug("broker-requester: Recibí mensaje por cola para reenviar:");//
+            m.show();//
             // Cambio id local por global; a falta de él, 0
             if (m.type != CREATE_MSG) {
                 p(ids_sem); {
@@ -123,6 +118,7 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
             }
         }
     }
+    log_debug("broker-requester: Termino");//
 }
 
 void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
@@ -132,10 +128,12 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
     while (!sig_quit) {
         // Recibo mensaje del servidor por red
         log_debug("broker-replier: Espero próximo mensaje por red del servidor");//
-        if (recv(sfd, &m, sizeof(m), 0) < 0) {
-            if (sig_quit) break;
+        ssize_t r = recv(sfd, &m, sizeof(m), 0);
+        if (r <= 0) {
+            if (r == 0 || sig_quit) break;
             log_error("broker-replier: Error al recibir mensaje del servidor");
         } else {
+            log_debug("broker-replier: Recibí por red un mensaje:");//
             m.show();//
 
             // Recambio id global por id local
@@ -188,6 +186,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
             }
         }
     }
+    log_debug("broker-replier: Termino");//
 }
 
 
@@ -198,8 +197,8 @@ int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id) {
         return 0;
     } else if (errno == ENOMSG) {
         // No hay nuevos mensajes
-        log_debug("broker-requester: No hay mensajes recibidos para devolverle al cliente:");//
-        m->id = -1 * m->id;
+        log_debug("broker-requester: No hay mensajes recibidos para devolverle al cliente");//
+        m->id = -1 * abs(m->id);
         strcpy(m->topic, "");
         strcpy(m->msg, "No hay mensajes nuevos");
         return 0;

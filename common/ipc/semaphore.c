@@ -35,7 +35,7 @@ int getsem(int identif) {
 }
 
 int inisem(int semid, int val) {
-    union semun {
+    union /*semun*/ {
         int val;                /* Value for SETVAL */
         struct semid_ds *buf;   /* Buffer for IPC_STAT, IPC_SET */
         unsigned short *array;  /* Array for GETALL, SETALL */
@@ -57,7 +57,7 @@ int p(int semid) {
     /* p(sem) */
     oper.sem_flg = 0;
 
-    if(semop(semid, &oper, 1)!=0){
+    if (semop(semid, &oper, 1) != 0) {
         log_error("No se pudo hacer P del semáforo");
         exit(-1);
     }
@@ -72,7 +72,7 @@ int v(int semid) {
     oper.sem_op = 1;
     /* v(sem) */
     oper.sem_flg = 0;
-    if(semop(semid, &oper, 1)!=0){
+    if (semop(semid, &oper, 1) != 0) {
         log_error("No se pudo hacer V del semáforo");
         exit(-1);
     }
