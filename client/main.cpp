@@ -108,7 +108,7 @@ bool errorCheck(struct msg_t m) {
     if (m.id > 0) {
         return false;
     }// else if (!strcmp(m.msg, "")) {
-    std::cout << "Error: " << m.msg;
+    std::cout << "Error. " << m.msg << std::endl;
     //}
     return true;
 }

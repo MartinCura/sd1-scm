@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <sstream>
 #include "../common/constants.h"
 #include "../common/message.h"
 extern "C" {
@@ -77,6 +78,12 @@ int main(int argc, char* argv[]) {
     unmapshm(next_id_p);
     delshm(next_id_shm);
     delsem(next_id_sem);
+    // Borro todos los archivos
+    std::stringstream c1, c2;
+    c1 << "exec rm " << SERVER_DB_TOPICS_DIR << "* &> /dev/null";
+    c2 << "exec rm " << SERVER_DB_SUBS_DIR << "* &> /dev/null";
+    system(c1.str().c_str());
+    system(c2.str().c_str());
     log_info("server: TERMINO");
     return 0;
 }
@@ -93,7 +100,7 @@ void requestHandler(int cfd, int q_req, int q_rep) {
 
     while (!sig_quit) {
         // Recibo mensaje del cliente por red
-        log_debug("server-requestHandler: Espero por red próximo mensaje del cliente");//
+        log_debug("server-requestHandler: Espero por red próximo mensaje del cliente...");//
         r = recv(cfd, &m, sizeof(m), 0);
         if (r <= 0) {
             if (r == 0 || sig_quit) break;
@@ -114,7 +121,7 @@ void replyHandler(int cfd, int q_rep) {
     struct msg_t m;
 
     while (!sig_quit) {
-        log_debug("server-replyHandler: Espero próximo mensaje en q_rep");//
+        log_debug("server-replyHandler: Espero próximo mensaje en q_rep...");//
         if (qrecv(q_rep, &m, sizeof(m), cfd) < 0) {
             if (sig_quit) break;
             log_warn("server-replyHandler: Error al recibir un mensaje de q_rep. Sigo intentando");

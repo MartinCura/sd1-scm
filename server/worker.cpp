@@ -75,11 +75,13 @@ int main(int argc, char* argv[]) {
         switch (m.type) {
             case CREATE_MSG:    // Registro nuevo id y lo entrego en el msg
                 {
+                    int nuevo_id;
                     p(next_id_sem); {
-                        strcpy(m.msg, std::to_string((*next_id_p)++).c_str());
+                        nuevo_id = (*next_id_p)++;
                     } v(next_id_sem);
+                    strcpy( m.msg, std::to_string(nuevo_id).c_str() );
                     //std::pair<std::map<int,int>::iterator,bool> ret;//
-                    if (!ids.insert(std::pair<int, int>(m.id, m.mtype)).second) {
+                    if (!ids.insert(std::pair<int, int>(nuevo_id, m.mtype)).second) {
                         // Id ya estaba registrado???
                         log_error("worker: id ya registrado, cosa imposible. Freno");
                         exit(-1);
@@ -95,6 +97,9 @@ int main(int argc, char* argv[]) {
                         int s = 0;
                         std::fstream s_fs, t_fs;
                         t_fs.open(getTopicFn(m.topic), std::fstream::in | std::fstream::out | std::fstream::app);
+                        if (!t_fs.is_open()) {
+                            log_debug(getTopicFn(m.topic).c_str());//
+                        }
 
                         while (t_fs >> s && s != m.id) {}
                         if (s == m.id) {
@@ -104,6 +109,7 @@ int main(int argc, char* argv[]) {
                             t_fs.clear();
                             t_fs << m.id << std::endl;  // Agrego id del sub al topic
                             s_fs.open(getSubFn(m.id), std::fstream::out | std::fstream::app);
+                            log_debug(getSubFn(m.id).c_str());//
                             s_fs << m.topic << std::endl;   // Agrego topic al sub
                             s_fs.close();
                         }

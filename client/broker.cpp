@@ -93,12 +93,12 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
     struct msg_t m;
 
     while (!sig_quit) {
-        log_debug("broker-requester: Espero próximo mensaje en q_req");//
+        log_debug("broker-requester: Espero próximo mensaje en q_req...");//
         if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
             if (sig_quit) break;
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
         } else if (m.type == RECV_MSG) {
-            if (devolverMensajeRecibido(q_storedmsg, &m, m.id)) { ///O lo hago de otra manera? Señal al replier?
+            if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) { ///O lo hago de otra manera? Señal al replier?
                 m.mtype = abs(m.id);
                 m.show();//
                 qsend(q_rep, &m, sizeof(m));
@@ -108,9 +108,17 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
             m.show();//
             // Cambio id local por global; a falta de él, 0
             if (m.type != CREATE_MSG) {
+                int tmp = m.id;
                 p(ids_sem); {
                     m.id = ids_p[m.id];
                 } v(ids_sem);
+                if (m.id == 0) {
+                    log_info("broker-requester: id no existe, notifico");//
+                    m.id = -1 * tmp;
+                    strcpy(m.msg, "Id no existe");
+                    qsend(q_rep, &m, sizeof(m));
+                    continue;
+                }
             }
             // Envío mensaje al servidor por red
             if (send(sfd, &m, sizeof(m), 0) < 0) {
@@ -127,7 +135,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
 
     while (!sig_quit) {
         // Recibo mensaje del servidor por red
-        log_debug("broker-replier: Espero próximo mensaje por red del servidor");//
+        log_debug("broker-replier: Espero próximo mensaje por red del servidor...");//
         ssize_t r = recv(sfd, &m, sizeof(m), 0);
         if (r <= 0) {
             if (r == 0 || sig_quit) break;
@@ -167,6 +175,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
                         strcpy(m.msg, std::to_string(m.id).c_str());
                     }
                     qsend(q_rep, &m, sizeof(m));
+                    break;
                 case SUB_MSG:
                 case PUB_MSG:       // Reenvían retorno al usuario
                     qsend(q_rep, &m, sizeof(m));
@@ -191,6 +200,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
 
 
 int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id) {
+    log_debug("broker-requester: Busco msg en q_storedmsg para devolver");
     if (qrecv_nowait(q_storedmsg, m, sizeof(*m), user_id) >= 0) {
         log_debug("broker-requester: Tengo mensaje recibido para devolverle al cliente:");//
         m->show();//

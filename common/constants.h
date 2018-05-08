@@ -31,9 +31,9 @@
 #define SERVER_FIRST_ID 1001
 
 // Directorios
-//#define SERVER_DB_ROOT_DIR    "db/"
-#define SERVER_DB_TOPICS_DIR  "db/topics/"
-#define SERVER_DB_SUBS_DIR    "db/subs/"
+//#define SERVER_DB_ROOT_DIR    "/home/martin/Desktop/db/"
+#define SERVER_DB_TOPICS_DIR  "/home/martin/Desktop/db/topics/"
+#define SERVER_DB_SUBS_DIR    "/home/martin/Desktop/db/subs/"
 #define SERVER_DB_FILE_EXT    ".txt"
 
 #endif //SD1_SCM_CONSTANTS_H
