@@ -1,0 +1,76 @@
+scm-v2 - Servers distribuidos en una ring network
+
+Ring network unidireccional. Cada server tendrá un sid (server id) único, y 2 procesos que lo representan en el ring: para esperar mensajes del anterior (ring-receiver) y enviar al siguiente (ring-sender); entre estos comunicar mediante cola ipc. Además tendrá un proceso esperando servers que deseen conectarse.
+
+Se guarda la información de sid y dirección de los dos servidores contiguos.
+
+Para distribuir un mensaje normal, se envía por el anillo con el sid del emisor, hasta que llegue al mismo y este lo descarte.
+
+Por ahora, el ruteo, conexión y asignación de id's serán estáticos. sid's chicos.
+Búsqueda de id único (opcional): puedo conectarme con un server líder (o uno al azar) y que este averigüe el mayor id para devolverme el siguiente.
+Solamente chequear de alguna manera que el sid asignado no esté ya tomado.
+
+
+A nivel local:
+Para conexiones del ring:	puerto = 8000 + sid
+Para conexiones con brokers:	puerto = 8100 + sid
+
+** Algoritmo para conectarse al ring: **
+1. Para iniciarlo recibe su sid y el sid del siguiente (aquel al que debe conectarse). En caso de no recibirlos, se considera que es el primero del ring y estará listo para recibir conexiones. En caso de no recibir el del siguiente, puede intentar conectarse a (sid_propio+1) % MAXRINGSIZE
+2. Se conecta con sid_sig, quien corre un nuevo proceso ring_receiver con él y envía por el ring a su sid_ant para que se conecte con sid_nuevo. (A menos que sid_sig sea él mismo, en cuyo caso actúa directamente, saltear demás pasos y conectarse con nuevo server.)
+3. Server de sid_ant se conecta con nuevo server mediante un nuevo proceso, y distribuye el mensaje, para que llegue a sid_sig nuevamente. Server anterior no envía más mensajes a server siguiente.
+4. Server sid_sig termina de procesar los mensajes de su anterior y elimina dicho proceso receptor. Su corresponsal, al ver que se cortó la conexión, elimina su correspondiente proceso emisor.
+
+Type NEWCONN y desde el paso 2 poner sig_ant en content. Si recibo content vacío, se intentan conectar a mí.
+
+
+** Algoritmo si cae un nodo: **
+1. Server anterior reintenta conexión cada 1 s. Server siguiente vuelve a esperar a que alguien se le conecte con timeout de 5 s. Dropeado debería poder recibir conexiones y enviar RETCONN a su siguiente.
+2a. En caso de recibir RETCONN, siguiente reconecta. Anterior debería poder reencontrarlo.
+2b. En caso de no, vencido el timeout, envía RETCONN con content=sid_caido.
+3a. Si tras X s actual no recibe conexiones, ¿...?
+3b. Al recibirlo server anterior deja de reintentar y se conecta directamente a serv_sig mediante otro RETCONN.
+
+
+ACCIÓN según client:
+- CREATE:   nada. Los clientes son específicos al server al que se conectan. No se comparten.
+- SUB:	    nada. Solo se guarda en su server.
+- PUB:	    se distribuye tanto en el server como en todo el ring. (msg, topic)
+- RECV:	    -
+- DESTROY:  nada
+
+struct ringmsg_t:
+- type:
+	NEWCONN (nueva conexión; se integra al ring)
+	RETCONN (falló y busca reconectarse)
+	PUBLISH (distribución de mensaje por el ring)
+	SERVOFF	(se desconectará y apagará el server, distribuye hasta que vuelva un ACK o haya RTO)
+	SHUTDWN (apagar todos los servers)
+- sid_orig: sid del emisor original
+- topic
+- content
+
+Casos:
+- NEWCONN sin content: Se me intenta conectar alguien que no estaba en el anillo.
+- NEWCONN con content: Alguien se agrega al anillo, si content==sid_propio conectarme a él; si no, distribuir, ¿si content==sid_propio?.
+- RETCONN sin content: Se me intenta reconectar alguien.
+- RETCONN con content: Mensaje para cerrar anillo. Si content==sid_caido conectarme a sid_orig; si no, distribuir, ¿si content==sid_propio?.
+- PUBLISH: Alguien publicó. Si sid_orig==sid_propio descartar, si no publicar mediante server y distribuir
+- SERVOFF: Se apaga un server. Si sid_orig==sid_propio, me puedo apagar; si no: si content vacío, cierro receptor y escucho, meto content=sid_propio y distribuyo, si no distribuyo y si sid_orig==sid_sig cierro emisor y me conecto con el sid en content.
+- SHUTDWN: Distribuyo y me apago (tras un pequeño flush timer?).
+
+
+TO DO
+- Una opción para que actúe independientemente (fuera de un ring)
+- Toda variable, directorio e ipc de server no debe poder chocar con aquella de otro corriendo en la misma máquina: diferenciar mediante el sid.
+- Sería más sensato que los números no sean contiguos y chicos, sino algo grande. Si hago eso, es más fácil respetar la conexión hacia número mayor. Por ahora hacerlos chicos para facilitar direccionamiento.
+- ACK de ringmsg?
+- Habría q cambiar todos los textos de msg_t de "msg" a "content" o similar.
+- Validado de servers? (que no se meta cualquiera) Podría comprobar un simple hash del id, más que nada en chiste. También tendría que validar yo haber iniciado un mensaje, pero bueno...
+- Hacer FSD para los nodos del ring.
+- Alguna forma de evitar que se corran 2 servers con el mismo id?
+
+
+DUDAS
+a) Debería haber un criterio para no permitir a un nuevo server interponerse entre 2? Lo derivo a otro lado?
+

@@ -7,7 +7,7 @@
 
 int creashm(int key, int size) {
     key_t clave;
-    clave = ftok(DIRECTORY, key);
+    clave = ftok(IPC_DIRECTORY, key);
     if (clave < 0) {
         log_error("Error on ftok while creating shared memory");
         return -1;
@@ -22,7 +22,7 @@ int creashm(int key, int size) {
 
 int getshm(int id) {
     key_t clave;
-    clave = ftok(DIRECTORY, id);
+    clave = ftok(IPC_DIRECTORY, id);
     if (clave < 0) {
         log_error("Error on ftok while getting shared memory");
         return -1;

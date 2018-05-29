@@ -5,7 +5,7 @@
 
 // Crea cola de mensajes inexistente
 int qcreate(int id) {
-    key_t clave = ftok(DIRECTORY, id);
+    key_t clave = ftok(IPC_DIRECTORY, id);
     if (clave < 0) {
         log_error("Error on ftok while creating message queue");
         return -1;
@@ -21,7 +21,7 @@ int qcreate(int id) {
 // Obtiene cola de mensajes existente
 int qget(int id) {
     key_t clave;
-    clave = ftok(DIRECTORY, id);
+    clave = ftok(IPC_DIRECTORY, id);
     if (clave < 0) {
         log_error("Error on ftok while getting message queue");
         return -1;

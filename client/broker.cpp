@@ -7,6 +7,7 @@
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <sstream>
 #include "../common/constants.h"
 #include "../common/message.h"
 extern "C" {
@@ -26,11 +27,28 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd);
 void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
+    if (argc > 2) {
+        log_error("server: Demasiados argumentos. Freno");
+        return -1;
+    } else if (argc >= 2 &&
+               (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        std::ostringstream oss;
+        oss << "Usage: " << argv[0] << " [server id]";
+        log_info(oss.str().c_str());
+        return 0;
+    }
     log_info("broker: Comienzo");
+
+    // Agarro id del server al que se conecta
+    int sid = 0;
+    if (argc >= 2) {
+        sid = atoi(argv[1]);
+    }
+
     register_handler(SIGINT_handler);
 
     // Conecto con el servidor, obtengo el socket file descriptor
-    int sfd = create_client_socket(IP_SERVER, PUERTO_SERVER);
+    int sfd = create_client_socket(IP_SERVER, (uint16_t) (PUERTO_SERVER + sid));
     if (sfd < 0) {
         log_error("broker: Error al crear socket cliente. Freno");
         exit(-1);
@@ -98,8 +116,8 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
             if (sig_quit) break;
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
         } else if (m.type == RECV_MSG) {
-            if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) { ///O lo hago de otra manera? Señal al replier?
-                m.mtype = abs(m.id);
+            if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) {
+//                m.mtype = abs(m.id);
                 m.show();//
                 qsend(q_rep, &m, sizeof(m));
             }
@@ -122,6 +140,7 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
             }
             // Envío mensaje al servidor por red
             if (send(sfd, &m, sizeof(m), 0) < 0) {
+                perror("broker-requester");
                 log_error("broker-requester: Error al enviar mensaje al servidor");
             }
         }
@@ -139,6 +158,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
         ssize_t r = recv(sfd, &m, sizeof(m), 0);
         if (r <= 0) {
             if (r == 0 || sig_quit) break;
+            perror("broker-replier");
             log_error("broker-replier: Error al recibir mensaje del servidor");
         } else {
             log_debug("broker-replier: Recibí por red un mensaje:");//
@@ -208,9 +228,9 @@ int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id) {
     } else if (errno == ENOMSG) {
         // No hay nuevos mensajes
         log_debug("broker-requester: No hay mensajes recibidos para devolverle al cliente");//
-        m->id = -1 * abs(m->id);
+        m->id = 0;///-1 * abs(m->id);
         strcpy(m->topic, "");
-        strcpy(m->msg, "No hay mensajes nuevos");
+        strcpy(m->msg, "¡No hay mensajes nuevos!");
         return 0;
     } else {
         log_warn("broker-requester: Error al pedir un mensaje de q_stored_msg. Sigo");

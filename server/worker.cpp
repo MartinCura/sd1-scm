@@ -6,7 +6,6 @@
 #include <map>
 #include <cstring>
 #include <csignal>
-#include "../common/constants.h"
 #include "../common/message.h"
 extern "C" {
 #include "../common/log/log.h"
@@ -16,7 +15,10 @@ extern "C" {
 #include "../common/ipc/sig.h"
 }
 
+//std::string procn = "worker";
 bool sig_quit = false;
+bool partOfRing = false;
+int q_ringsend = -1, q_ringrecv = -1;
 
 void SIGINT_handler(int signum) {
     if (signum != SIGINT) {
@@ -37,17 +39,28 @@ std::string getSubFn(int id) {
 
 void setError(struct msg_t *m, const char *s) {
     m->id = -1 * m->id;
-    strcpy(m->msg, s);
+    strncpy(m->msg, s, MAX_MSG_LENGTH);
 }
 
 
 int main(int argc, char* argv[]) {
+    if (argc > 2) {
+        log_error("server: Cantidad de argumentos incorrecta. Freno");
+        return -1;
+    }
     register_handler(SIGINT_handler);
 
-    // Obtiene colas
+    // Si recibo id de server, soy parte de un ring
+    if (argc >= 2 && atoi(argv[1]) >= 0) {
+        partOfRing = true;
+        q_ringsend = qget(SERVER_RINGSEND_Q_ID);
+        q_ringrecv = qget(SERVER_RINGRECV_Q_ID);    ///No necesito esta acá
+    }
+    // Obtengo otras colas
     int q_req = qget(SERVER_REQ_Q_ID);
     int q_rep = qget(SERVER_REP_Q_ID);
-    if (q_req < 0 || q_rep < 0) {
+    if ( (q_req < 0 || q_rep < 0) &&
+         (partOfRing && (q_ringsend < 0 || q_ringrecv < 0)) ) {
         log_error("worker: Error al crear msg queue. Freno");
         exit(-1);
     }
@@ -116,19 +129,25 @@ int main(int argc, char* argv[]) {
                 }
                 break;
 
-            case PUB_MSG:     // Si id existe, envía msg a cada suscriptor. Si topic no existía lo crea
+            case PUB_MSG:     // Si id es 0 (difusión) o existe localmente, envía msg a cada suscriptor. Si topic no existía lo crea
                 {
-                    if (ids.find(m.id) != ids.end()) {
+                    if (m.id == 0 || ids.find(m.id) != ids.end()) {
                         // Preparo mensaje de difusión
                         struct msg_t m_dif;
                         m_dif.type = RECV_MSG;
                         strncpy(m_dif.topic, m.topic, MAX_TOPIC_LENGTH);
                         strncpy(m_dif.msg, m.msg, MAX_MSG_LENGTH);
 
+                        // Difusión a ring
+                        if (partOfRing) {
+                            ///Cambiarle algo??
+                            qsend(q_ringsend, &m, sizeof(m));
+                        }
+
+                        // Difusión a brokers: Envío un mensaje por cada suscriptor
                         int id_s;
                         std::ifstream t_ifs;
                         t_ifs.open(getTopicFn(m.topic), std::ifstream::in | std::ifstream::app);
-                        // Difusión: Envío un mensaje por cada suscriptor
                         while (t_ifs >> id_s) {
                             std::map<int, int>::iterator it_rcp = ids.find(id_s);
                             if (it_rcp != ids.end()) {
@@ -141,7 +160,7 @@ int main(int argc, char* argv[]) {
                         }
                         t_ifs.close();
                     } else {
-                        log_info("worker: pub tiene id inexistente");
+                        log_info("worker: pub local tiene id inexistente");
                         setError(&m, "Id inexistente, no se publicó");
                     }
                 }

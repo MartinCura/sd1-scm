@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
 
 
 void showHelp(char* argv[]) {
-    std::cout << "Usage: " << argv[0] << " COMMAND" << std::endl
+    std::cout << "Usage: " << argv[0] << " COMMAND [args]" << std::endl
               << "Commands:" << std::endl
               << '\t' << "CREATE  / c" << "\t\t\t" << "Crear un usuario; devuelve su id" << std::endl
               << '\t' << "PUB     / p (id, msg, topic)" << '\t' << "Publicar a un topic (en caso de que no exista lo crea)" << std::endl
@@ -105,9 +105,9 @@ void showHelp(char* argv[]) {
 }
 
 bool errorCheck(struct msg_t m) {
-    if (m.id > 0) {
+    if (m.id >= 0) {
         return false;
-    }// else if (!strcmp(m.msg, "")) {
+    }// else if (!strcmp(m.msg, "") == 0) {
     std::cout << "Error. " << m.msg << std::endl;
     //}
     return true;
@@ -179,6 +179,10 @@ int receiveMessage(int id) {
     qsend(q_req, &m, sizeof(m));
     qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
+    if (m.id == 0) {
+        std::cout << m.msg << std::endl;
+        return 0;
+    }
     std::cout << "----------" << std::endl;
     std::cout << "Topic: " << m.topic << std::endl;
     std::cout << m.msg << std::endl;

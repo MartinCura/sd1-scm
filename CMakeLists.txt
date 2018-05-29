@@ -20,7 +20,8 @@ set(DEPENDENCIES
         common/ipc/shm.h
         common/ipc/shm.c)
 
-add_executable(scm-client    client/main.cpp    ${DEPENDENCIES})
-add_executable(local-broker  client/broker.cpp  ${DEPENDENCIES})
-add_executable(scm-server    server/server.cpp  ${DEPENDENCIES})
-add_executable(server-worker server/worker.cpp  ${DEPENDENCIES})
+add_executable(scm-client    client/main.cpp        ${DEPENDENCIES})
+add_executable(local-broker  client/broker.cpp      ${DEPENDENCIES})
+add_executable(scm-server    server/server.cpp      ${DEPENDENCIES})
+add_executable(server-worker server/worker.cpp      ${DEPENDENCIES})
+add_executable(ring-node     server/ring_node.cpp   ${DEPENDENCIES})

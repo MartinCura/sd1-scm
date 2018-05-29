@@ -7,7 +7,7 @@
 
 int creasem(int identif) {
     key_t clave;
-    clave = ftok(DIRECTORY, identif);
+    clave = ftok(IPC_DIRECTORY, identif);
     if (clave < 0) {
         log_error("Error on ftok while creating semaphore");
         return -1;
@@ -22,7 +22,7 @@ int creasem(int identif) {
 
 int getsem(int identif) {
     key_t clave;
-    clave = ftok(DIRECTORY, identif);
+    clave = ftok(IPC_DIRECTORY, identif);
     if (clave < 0) {
         log_error("Error on ftok while getting semaphore");
         return -1;

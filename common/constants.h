@@ -11,6 +11,8 @@
 #define STORED_MESSAGES_ID 3
 #define SERVER_REQ_Q_ID 4
 #define SERVER_REP_Q_ID 5
+#define SERVER_RINGSEND_Q_ID 6
+#define SERVER_RINGRECV_Q_ID 7
 
 // Semáforos
 #define LOCAL_IDS_SEM_ID 1
@@ -24,16 +26,17 @@
 #define MAX_TOPIC_LENGTH 30
 #define MAX_MSG_LENGTH   280
 #define IP_SERVER "127.0.0.1"
-#define PUERTO_SERVER   8080
+#define PUERTO_NODO_RING 8000   // Puerto como nodo del ring
+#define PUERTO_SERVER    8100   // Puerto para los brokers
 #define CANT_SERVER_WORKERS 1   ///Para que pueda ser mayor a 1, falta concurrencia en worker
 #define LOCAL_FIRST_ID  1   // 101 ? Menor es mejor
 #define LOCAL_MAX_ID    1000
 #define SERVER_FIRST_ID 1001
 
 // Directorios
-//#define SERVER_DB_ROOT_DIR    "/home/martin/Desktop/db/"
-#define SERVER_DB_TOPICS_DIR  "/home/martin/Desktop/db/topics/"
-#define SERVER_DB_SUBS_DIR    "/home/martin/Desktop/db/subs/"
+//#define SERVER_DB_ROOT_DIR    "./scm-db/"
+#define SERVER_DB_TOPICS_DIR  "./scm-db/topics/"
+#define SERVER_DB_SUBS_DIR    "./scm-db/subs/"
 #define SERVER_DB_FILE_EXT    ".txt"
 
 #endif //SD1_SCM_CONSTANTS_H
