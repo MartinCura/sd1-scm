@@ -15,21 +15,31 @@ A nivel local:
 Para conexiones del ring:	puerto = 8000 + sid
 Para conexiones con brokers:	puerto = 8100 + sid
 
-** Algoritmo para conectarse al ring: **
-1. Para iniciarlo recibe su sid y el sid del siguiente (aquel al que debe conectarse). En caso de no recibirlos, se considera que es el primero del ring y estará listo para recibir conexiones. En caso de no recibir el del siguiente, puede intentar conectarse a (sid_propio+1) % MAXRINGSIZE
-2. Se conecta con sid_sig, quien corre un nuevo proceso ring_receiver con él y envía por el ring a su sid_ant para que se conecte con sid_nuevo. (A menos que sid_sig sea él mismo, en cuyo caso actúa directamente, saltear demás pasos y conectarse con nuevo server.)
-3. Server de sid_ant se conecta con nuevo server mediante un nuevo proceso, y distribuye el mensaje, para que llegue a sid_sig nuevamente. Server anterior no envía más mensajes a server siguiente.
-4. Server sid_sig termina de procesar los mensajes de su anterior y elimina dicho proceso receptor. Su corresponsal, al ver que se cortó la conexión, elimina su correspondiente proceso emisor.
+** Algoritmo para conectarse al ring: **	NEWCONN
+1. Para iniciarlo recibe su sid y el sid del siguiente (aquel al que debe conectarse). Se prepara para recibir conexiones. En caso de no recibir sid_sig, se considera que es el primero del ring y corta acá.
+2. Se conecta con sid_sig y corro proceso sender con él, y le envía un mensaje de NEWCONN.
+3. El nodo siguiente al recibir la conexión corre un nuevo proceso ring_receiver con el nodo nuevo. Al recibir el rmsg NEWCONN, mete su sid_propio en content y lo distribuye por el ring (para que le llegue a su sid_ant y este se conecte con sid_nuevo). (A menos que sid_sig sea él mismo, en cuyo caso actúa directamente, saltear demás pasos y conectarse con nuevo server.)
+4. Server de sid_ant detecta que su sid_sig está en content y se conecta con el nuevo nodo (sid_orig) mediante un nuevo proceso, y envía una última vez el mensaje NEWCONN por el viejo camino, para informar que no le enviará más mensajes directamente. Server anterior no envía más mensajes a server siguiente y se queda a la espera.
+5. Server sid_sig termina de procesar los mensajes de su anterior y al recibir el NEWCONN con su propio sid en content elimina dicho proceso receptor. Su corresponsal (anterior), al ver que se cortó la conexión, elimina su correspondiente proceso emisor. Ahora se comunican únicamente por el nuevo camino.
 
-Type NEWCONN y desde el paso 2 poner sig_ant en content. Si recibo content vacío, se intentan conectar a mí.
 
-
-** Algoritmo si cae un nodo: **
+** Algoritmo si cae un nodo: **		RETCONN
 1. Server anterior reintenta conexión cada 1 s. Server siguiente vuelve a esperar a que alguien se le conecte con timeout de 5 s. Dropeado debería poder recibir conexiones y enviar RETCONN a su siguiente.
-2a. En caso de recibir RETCONN, siguiente reconecta. Anterior debería poder reencontrarlo.
-2b. En caso de no, vencido el timeout, envía RETCONN con content=sid_caido.
+2a. En caso de recibir RETCONN, siguiente reconecta.
 3a. Si tras X s actual no recibe conexiones, ¿...?
-3b. Al recibirlo server anterior deja de reintentar y se conecta directamente a serv_sig mediante otro RETCONN.
+2b. En caso de no, vencido el timeout, envía RETCONN con content=sid_caido.
+3b. Al recibirlo server anterior (aquel que tenga sid_sig==sid_orig ¿o cualquiera que esté intentando reconectar su emisor?) deja de reintentar y se conecta directamente a serv_sig mediante otro RETCONN.
+[Basarse en algo similar al algoritmo de SERVOFF debajo.]
+
+
+** Algoritmo para desconectarse del ring: **	SERVOFF
+1. Server envía SERVOFF con su sid_orig, no envía más mensajes y espera.
+2. Server siguiente coloca su sid en content, cierra la conexión con su anterior, y distribuye. Si el sid_orig==sid_sig, quedará solo, no enviar más.
+3. Servers chequean
+	a) content vacío, ver punto 2.
+	b) sid_orig==sid: se puede apagar.
+	c) sid_orig==sid_sig: distribuyo y me desconecto, me conecto como emisor a aquel en sid_sig.
+	d) Si no, distribuir.
 
 
 ACCIÓN según client:
@@ -40,6 +50,7 @@ ACCIÓN según client:
 - DESTROY:  nada
 
 struct ringmsg_t:
+- mtype
 - type:
 	NEWCONN (nueva conexión; se integra al ring)
 	RETCONN (falló y busca reconectarse)
@@ -50,17 +61,18 @@ struct ringmsg_t:
 - topic
 - content
 
-Casos:
+Casos si recibí un ringmsg:
 - NEWCONN sin content: Se me intenta conectar alguien que no estaba en el anillo.
-- NEWCONN con content: Alguien se agrega al anillo, si content==sid_propio conectarme a él; si no, distribuir, ¿si content==sid_propio?.
+- NEWCONN con content: Alguien se agrega al anillo, si content==sid_sig conectarme al sid_orig y enviarlo por el camino viejo; si content==sid_propio, cerrar receeptor; si no, distribuir.
 - RETCONN sin content: Se me intenta reconectar alguien.
 - RETCONN con content: Mensaje para cerrar anillo. Si content==sid_caido conectarme a sid_orig; si no, distribuir, ¿si content==sid_propio?.
-- PUBLISH: Alguien publicó. Si sid_orig==sid_propio descartar, si no publicar mediante server y distribuir
+- PUBLISH: Alguien publicó. Si sid_orig==sid_propio descartar, si no publicar mediante server y distribuir.
 - SERVOFF: Se apaga un server. Si sid_orig==sid_propio, me puedo apagar; si no: si content vacío, cierro receptor y escucho, meto content=sid_propio y distribuyo, si no distribuyo y si sid_orig==sid_sig cierro emisor y me conecto con el sid en content.
 - SHUTDWN: Distribuyo y me apago (tras un pequeño flush timer?).
 
 
 TO DO
+- Primariamente lo estoy haciendo todo en una misma ip. Después extender
 - Una opción para que actúe independientemente (fuera de un ring)
 - Toda variable, directorio e ipc de server no debe poder chocar con aquella de otro corriendo en la misma máquina: diferenciar mediante el sid.
 - Sería más sensato que los números no sean contiguos y chicos, sino algo grande. Si hago eso, es más fácil respetar la conexión hacia número mayor. Por ahora hacerlos chicos para facilitar direccionamiento.

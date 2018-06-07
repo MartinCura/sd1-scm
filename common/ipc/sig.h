@@ -3,6 +3,7 @@
 
 #include <signal.h>
 
-void register_handler(void (*handler)(int));
+void register_SIGINT_handler(void (*handler)(int));
+void register_sig_handler(void (*handler)(int), int signum);
 
 #endif //BROKER_SIG_H

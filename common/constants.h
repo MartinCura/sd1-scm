@@ -32,6 +32,8 @@
 #define LOCAL_FIRST_ID  1   // 101 ? Menor es mejor
 #define LOCAL_MAX_ID    1000
 #define SERVER_FIRST_ID 1001
+#define SERVOFF_TIMER_SEC 2
+#define RETCONN_TIMER_SEC 8
 
 // Directorios
 //#define SERVER_DB_ROOT_DIR    "./scm-db/"

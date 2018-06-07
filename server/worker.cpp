@@ -6,7 +6,9 @@
 #include <map>
 #include <cstring>
 #include <csignal>
+#include <sstream>
 #include "../common/message.h"
+#include "../common/ringmessage.h"
 extern "C" {
 #include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
@@ -18,7 +20,7 @@ extern "C" {
 //std::string procn = "worker";
 bool sig_quit = false;
 bool partOfRing = false;
-int q_ringsend = -1, q_ringrecv = -1;
+int q_ringsend = -1;
 
 void SIGINT_handler(int signum) {
     if (signum != SIGINT) {
@@ -48,27 +50,36 @@ int main(int argc, char* argv[]) {
         log_error("server: Cantidad de argumentos incorrecta. Freno");
         return -1;
     }
-    register_handler(SIGINT_handler);
+    register_SIGINT_handler(SIGINT_handler);
 
-    // Si recibo id de server, soy parte de un ring
+    // Si recibo id de server, soy parte de un ring; obtengo cola para difusión
     if (argc >= 2 && atoi(argv[1]) >= 0) {
         partOfRing = true;
         q_ringsend = qget(SERVER_RINGSEND_Q_ID);
-        q_ringrecv = qget(SERVER_RINGRECV_Q_ID);    ///No necesito esta acá
     }
     // Obtengo otras colas
     int q_req = qget(SERVER_REQ_Q_ID);
     int q_rep = qget(SERVER_REP_Q_ID);
     if ( (q_req < 0 || q_rep < 0) &&
-         (partOfRing && (q_ringsend < 0 || q_ringrecv < 0)) ) {
+         (partOfRing && q_ringsend < 0) ) {
         log_error("worker: Error al crear msg queue. Freno");
         exit(-1);
     }
     // Mappeo id local-global; shm con id siguiente y sem para acceder a ella
-    std::map<int,int> ids;      // Concurrencia: Eventualmente mover a shm. Alternativa: hacer workers con threads
+    std::map<int,int> ids;      // Concurrencia: Eventualmente mover a archivo
     int next_id_sem = getsem(SERVER_NEXT_ID_SEM_ID);
     int next_id_shm = getshm(SERVER_NEXT_ID_SHM_ID);
-    int* next_id_p = (int*) mapshm(next_id_shm);
+    int *next_id_p = (int *) mapshm(next_id_shm);
+
+    if (partOfRing) {
+        std::ostringstream oss;
+        oss << "worker: Comienzo, con sid " << atoi(argv[1]);
+        log_info(oss.str().c_str());
+//        std::string s = "pwd && ls";
+//        system(s.c_str());
+    } else {
+        log_info("worker: Comienzo (sin sid)");
+    }
 
     while (!sig_quit) {
         struct msg_t m;
@@ -88,9 +99,9 @@ int main(int argc, char* argv[]) {
                     p(next_id_sem); {
                         nuevo_id = (*next_id_p)++;
                     } v(next_id_sem);
-                    strcpy( m.msg, std::to_string(nuevo_id).c_str() );
+                    strcpy(m.msg, std::to_string(nuevo_id).c_str());
                     if (!ids.insert(std::pair<int, int>(nuevo_id, m.mtype)).second) {
-                        // Id ya estaba registrado???
+                        // Id ya estaba registrado?
                         log_error("worker: id ya registrado, cosa imposible. Freno");
                         exit(-1);
                     }
@@ -129,19 +140,23 @@ int main(int argc, char* argv[]) {
                 }
                 break;
 
-            case PUB_MSG:     // Si id es 0 (difusión) o existe localmente, envía msg a cada suscriptor. Si topic no existía lo crea
+            case PUB_MSG:     // Si id es 0 (ring) o existe localmente, envía msg a cada suscriptor. Si topic no existía lo crea
                 {
                     if (m.id == 0 || ids.find(m.id) != ids.end()) {
-                        // Preparo mensaje de difusión
+                        // Preparo mensaje de difusión por server
                         struct msg_t m_dif;
                         m_dif.type = RECV_MSG;
                         strncpy(m_dif.topic, m.topic, MAX_TOPIC_LENGTH);
-                        strncpy(m_dif.msg, m.msg, MAX_MSG_LENGTH);
+                        strncpy(m_dif.msg,   m.msg,   MAX_MSG_LENGTH);
 
-                        // Difusión a ring
-                        if (partOfRing) {
-                            ///Cambiarle algo??
-                            qsend(q_ringsend, &m, sizeof(m));
+                        // Difusión a ring (si no vino de allí)
+                        if (m.id != 0 && partOfRing) {
+                            struct ringmsg_t rm;
+                            rm.type = PUBLISH;
+                            rm.sid_orig = UNFILLED_SID;
+                            strncpy(rm.topic,   m.topic, MAX_TOPIC_LENGTH);
+                            strncpy(rm.content, m.msg,   MAX_MSG_LENGTH);
+                            qsend(q_ringsend, &rm, sizeof(rm));
                         }
 
                         // Difusión a brokers: Envío un mensaje por cada suscriptor

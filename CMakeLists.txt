@@ -6,6 +6,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(DEPENDENCIES
         common/constants.h
         common/message.h
+        common/ringmessage.h
         common/log/log.h
         common/log/log.c
         common/ipc/resources.h

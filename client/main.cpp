@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "PUBlish requiere 3 argumentos" << std::endl;
             return 1;
         } else if (atoi(argv[2]) <= 0) {
-            std::cerr << "id debe ser un número positivo" << std::endl;
+            std::cerr << "Id debe ser un número positivo" << std::endl;
             return 2;
         }
         return publishMessage(atoi(argv[2]), argv[3], argv[4]);
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "SUBscribe requiere 2 argumentos" << std::endl;
             return 1;
         } else if (atoi(argv[2]) <= 0) {
-            std::cerr << "id debe ser un número positivo" << std::endl;
+            std::cerr << "Id debe ser un número positivo" << std::endl;
             return 2;
         }
         return subscribeToTopic(atoi(argv[2]), argv[3]);
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "RECeiVe requiere 1 argumento" << std::endl;
             return 1;
         } else if (atoi(argv[2]) <= 0) {
-            std::cerr << "id debe ser un número positivo" << std::endl;
+            std::cerr << "Id debe ser un número positivo" << std::endl;
             return 2;
         }
         return receiveMessage(atoi(argv[2]));
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "DESTROY requiere 1 argumento" << std::endl;
             return 1;
         } else if (atoi(argv[2]) <= 0) {
-            std::cerr << "id debe ser un número positivo" << std::endl;
+            std::cerr << "Id debe ser un número positivo" << std::endl;
             return 2;
         }
         return destroyUser(atoi(argv[2]));
@@ -97,8 +97,8 @@ void showHelp(char* argv[]) {
     std::cout << "Usage: " << argv[0] << " COMMAND [args]" << std::endl
               << "Commands:" << std::endl
               << '\t' << "CREATE  / c" << "\t\t\t" << "Crear un usuario; devuelve su id" << std::endl
-              << '\t' << "PUB     / p (id, msg, topic)" << '\t' << "Publicar a un topic (en caso de que no exista lo crea)" << std::endl
-              << '\t' << "SUB     / s (id, topic)" << "\t\t" << "Suscribirse a un topic" << std::endl
+              << '\t' << "PUB     / p (id, msg, topic)" << '\t' << "Publicar a un topic (si no existe lo crea)" << std::endl
+              << '\t' << "SUB     / s (id, topic)" << "\t\t" << "Suscribirse a un topic (si no existe lo crea)" << std::endl
               << '\t' << "RECV    / r (id)" << "\t\t" << "Recibir próximo mensaje de cualquier topic" << std::endl
               << '\t' << "DESTROY / d (id)" << "\t\t" << "Eliminar un usuario" << std::endl
               << '\t' << "HELP    / h" << "\t\t\t" << "Mostrar esta ayuda" << std::endl;

@@ -39,20 +39,24 @@ int main(int argc, char* argv[]) {
     }
     log_info("broker: Comienzo");
 
-    // Agarro id del server al que se conecta
+    // Agarro id del server al que se conecta; si no hay ring será sid = 0 por default
     int sid = 0;
     if (argc >= 2) {
         sid = atoi(argv[1]);
+        // Cambio al directorio del server
+        std::string folder = "./s" + std::string(argv[1]) + "/";
+        chdir(folder.c_str());
     }
 
-    register_handler(SIGINT_handler);
+    register_SIGINT_handler(SIGINT_handler);
 
     // Conecto con el servidor, obtengo el socket file descriptor
-    int sfd = create_client_socket(IP_SERVER, (uint16_t) (PUERTO_SERVER + sid));
+    uint16_t puerto_server = (uint16_t) (PUERTO_SERVER + sid);
+    int sfd = create_client_socket(IP_SERVER, puerto_server);
     if (sfd < 0) {
         log_error("broker: Error al crear socket cliente. Freno");
         exit(-1);
-    }
+     }
     // Creo las colas
     int q_req = qcreate(LOCAL_REQ_Q_ID);
     int q_rep = qcreate(LOCAL_REP_Q_ID);
@@ -109,39 +113,55 @@ int main(int argc, char* argv[]) {
 void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // No sé si me encanta esta solución
     int ids_sem = getsem(LOCAL_IDS_SEM_ID);
     struct msg_t m;
+    int mapped_id;
 
     while (!sig_quit) {
         log_debug("broker-requester: Espero próximo mensaje en q_req...");//
         if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
             if (sig_quit) break;
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
-        } else if (m.type == RECV_MSG) {
-            if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) {
-//                m.mtype = abs(m.id);
-                m.show();//
-                qsend(q_rep, &m, sizeof(m));
-            }
         } else {
-            log_debug("broker-requester: Recibí mensaje por cola para reenviar:");//
+            log_debug("broker-requester: Recibí mensaje por cola:");//
             m.show();//
-            // Cambio id local por global; a falta de él, 0
-            if (m.type != CREATE_MSG) {
-                int tmp = m.id;
-                p(ids_sem); {
-                    m.id = ids_p[m.id];
-                } v(ids_sem);
-                if (m.id == 0) {
-                    log_info("broker-requester: id no existe, notifico");//
-                    m.id = -1 * tmp;
-                    strcpy(m.msg, "Id no existe");
+
+            if (m.type != CREATE_MSG) { // Estos no tendrían id mappeado todavía
+                if (m.id < 0 || m.id >= LOCAL_MAX_ID) {
+                    log_error("broker-requester: id inválido, notifico");
+                    strncpy(m.msg, "Id inválido", MAX_MSG_LENGTH);
                     qsend(q_rep, &m, sizeof(m));
                     continue;
                 }
+                p(ids_sem); {
+                    // Cambio id local por global; a falta de él, 0 (si no existe) o -1 (si fue borrado)
+                    mapped_id = ids_p[m.id];
+                } v(ids_sem);
+                if (mapped_id <= 0) {
+                    log_info("broker-requester: id no existe o fue destruido, notifico");
+                    m.id = -1 * m.id;
+                    if (mapped_id == 0)
+                        strncpy(m.msg, "Id no existe", MAX_MSG_LENGTH);
+                    else if (mapped_id == -1)
+                        strncpy(m.msg, "Id fue destruido", MAX_MSG_LENGTH);
+                    qsend(q_rep, &m, sizeof(m));
+                    continue;
+                }
+                if (m.type != RECV_MSG) {   // En el caso de RECV_MSG solo revisé que existe
+                    m.id = mapped_id;
+                }
             }
-            // Envío mensaje al servidor por red
-            if (send(sfd, &m, sizeof(m), 0) < 0) {
-                perror("broker-requester");
-                log_error("broker-requester: Error al enviar mensaje al servidor");
+
+            if (m.type == RECV_MSG) {
+                if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) {
+//                m.mtype = abs(m.id);
+                    m.show();//
+                    qsend(q_rep, &m, sizeof(m));
+                }
+            } else {
+                // Envío mensaje al servidor por red
+                if (send(sfd, &m, sizeof(m), 0) < 0) {
+                    perror("broker-requester");
+                    log_error("broker-requester: Error al enviar mensaje al servidor");
+                }
             }
         }
     }
@@ -189,7 +209,7 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
                     m.mtype = abs(m.id);
                     if (m.id >= 0) {    // Solo si fue exitoso
                         p(ids_sem); {
-                            ids_p[m.id] = atoi(m.msg);
+                            ids_p[m.id] = atoi(m.msg);  // ids_p[0] se incrementa en el client
                         }
                         v(ids_sem);
                         strcpy(m.msg, std::to_string(m.id).c_str());
