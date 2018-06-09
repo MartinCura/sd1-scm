@@ -1,4 +1,7 @@
 Sistema de colas de mensajes distribuido
+////////////////////////////////////////
+(de idea vaga a plan claro)
+
 
 Cada una puede publicar y leer de distintas colas
 Estilo publisher/subscriber
@@ -147,3 +150,4 @@ X puede ser cualquier cosa.
 Z puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.
 
 Devolver id negativo significa error. Detalle en msg.
+

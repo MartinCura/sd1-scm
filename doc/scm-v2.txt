@@ -1,20 +1,18 @@
 scm-v2 - Servidores distribuidos en una ring network
 ////////////////////////////////////////////////////
 
-Ring network unidireccional. Cada server tendrá un sid (server id) único, y 2 procesos que lo representan en el ring: para esperar mensajes del anterior (ring-receiver) y enviar al siguiente (ring-sender); entre estos comunicar mediante cola ipc. Además tendrá un proceso esperando servers que deseen conectarse.
+Ring network unidireccional. Cada server tiene un sid (server id) único, y 2 procesos que lo representan en el ring: para esperar mensajes del anterior (ring-receiver) y enviar al siguiente (ring-sender); entre estos comunicar mediante cola ipc. Además tiene un proceso esperando servers que deseen conectarse.
 
 Se guarda la información de sid y dirección de los dos servidores contiguos.
 
-Para distribuir un mensaje normal, se envía por el anillo con el sid del emisor, hasta que llegue al mismo y este lo descarte.
+Para distribuir un mensaje normal, se envía por el anillo con el sid del emisor, hasta que llegue al anterior o (en ciertos casos) a él mismo y este lo descarte.
 
-Por ahora, el ruteo, conexión y asignación de id's serán estáticos. sid's chicos.
 Búsqueda de id único (opcional): puedo conectarme con un server líder (o uno al azar) y que este averigüe el mayor id para devolverme el siguiente.
-Solamente chequear de alguna manera que el sid asignado no esté ya tomado.
 
 
 A nivel local:
 Para conexiones del ring:	puerto = 8000 + sid
-Para conexiones con brokers:	puerto = 8100 + sid
+Para conexiones con brokers:	puerto = 8500 + sid
 
 ** Algoritmo para conectarse al ring: **	NEWCONN
 1. Para iniciarlo recibe su sid y el sid del siguiente (aquel al que debe conectarse). Se prepara para recibir conexiones. En caso de no recibir sid_sig, se considera que es el primero del ring y corta acá.
@@ -24,7 +22,7 @@ Para conexiones con brokers:	puerto = 8100 + sid
 5. Server sid_sig termina de procesar los mensajes de su anterior y al recibir el NEWCONN con su propio sid en content elimina dicho proceso receptor. Su corresponsal (anterior), al ver que se cortó la conexión, elimina su correspondiente proceso emisor. Ahora se comunican únicamente por el nuevo camino.
 
 
-** Algoritmo si cae un nodo: **		RETCONN
+** Algoritmo si cae un nodo: **			RETCONN
 1. Server anterior reintenta conexión cada 1 s. Server siguiente vuelve a esperar a que alguien se le conecte con timeout de 5 s. Dropeado debería poder recibir conexiones y enviar RETCONN a su siguiente.
 2a. En caso de recibir RETCONN, siguiente reconecta.
 3a. Si tras X s actual no recibe conexiones, ¿...?
@@ -86,3 +84,4 @@ TO DO
 
 DUDAS
 a) Debería haber un criterio para no permitir a un nuevo server interponerse entre 2? Lo derivo a otro lado?
+
