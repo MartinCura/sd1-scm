@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
         struct ringmsg_t rm;
         rm.sid_orig = UNFILLED_SID;
         rm.type = SERVOFF;
-        qsend(SERVER_RINGSEND_Q_ID, &rm, sizeof(rm));
+        qsend(q_ringsend, &rm, sizeof(rm));
     }
     // Espero a que terminen todos los procesos hijos
     while ( wait(NULL) > 0 );
@@ -156,10 +156,8 @@ int main(int argc, char* argv[]) {
     delsem(next_id_sem);
     // Borro todos los archivos
     std::stringstream c1, c2;
-    c1 << "exec rm -r " << SERVER_DB_SUBS_DIR   << "* &> /dev/null";
-    c2 << "exec rm -r " << SERVER_DB_TOPICS_DIR << "* &> /dev/null";
-//    c1 << "exec cd " << SERVER_DB_SUBS_DIR   << " && rm -r `ls -Ab`";
-//    c2 << "exec cd " << SERVER_DB_TOPICS_DIR << " && rm -r `ls -Ab`";
+    c1 << "exec rm -rf " << SERVER_DB_SUBS_DIR   << "* &> /dev/null";
+    c2 << "exec rm -rf " << SERVER_DB_TOPICS_DIR << "* &> /dev/null";
     system(c1.str().c_str());
     system(c2.str().c_str());
     log_info("server: TERMINO");

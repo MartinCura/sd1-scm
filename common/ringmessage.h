@@ -16,6 +16,7 @@
 #define SHUTDWN 5   // Apagar todos los servers
 
 #define UNFILLED_SID -2
+#define CLOSE_RING_GAP -3
 
 typedef struct ringmsg_t {
     long mtype = 1;

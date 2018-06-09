@@ -38,6 +38,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (cmd == "CREATE" || cmd == "c") {
+        if (argc != 2) {
+            std::cerr << "Create no requiere argumentos" << std::endl;
+            return 1;
+        }
         return createUser();
 
     } else if (cmd == "PUB" || cmd == "p") {

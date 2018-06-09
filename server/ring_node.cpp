@@ -31,6 +31,7 @@ void SIGINT_handler(int signum);
 void SIGALRM_handler(int signum);
 int ring_receiver(int nafd);
 int ring_sender(int nsfd);
+bool siguienteIsAlive(int nsfd, struct ringmsg_t rm);
 
 
 int main(int argc, char *argv[]) {
@@ -76,6 +77,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
+    /// Lanzador de SENDERs
     // Lanzo proceso para el sender; siempre hay solo uno que se reconecta con distintos nodos según haga falta
     if (fork() == 0) {
         struct ringmsg_t rm;
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
                     oss3 << "ring_sender: Me conectaré al sid " << sid_sig;
                     log_info(oss3.str().c_str());
                 } else {
-                    log_info("ring_node: Se intentó distribuir un mensaje pero todavía no estoy conectado");
+                    log_info("ring_node: Se intentó distribuir un mensaje pero no estoy conectado");
                 }
             }
 
@@ -109,9 +111,9 @@ int main(int argc, char *argv[]) {
                     exit(-1);
                 }
 
-                if (rm.sid_orig >= 0) { ///Si recibí de ring_receive un rm, no recibí sid_sig por parámetro
+                if (rm.sid_orig >= 0) { // Si recibí de ring_receive un rm, no recibí sid_sig por parámetro
                     // No inicié la conexión, pero debo distribuir el mensaje NEWCONN que recibí
-                    if (send(nsfd, &rm, sizeof(rm), 0) < 0) {
+                    if (rm.type == NEWCONN && send(nsfd, &rm, sizeof(rm), 0) < 0) {
                         perror("ring_sender");
                         log_error("ring_sender: Error al distribuir mensaje de NEWCONN al nodo siguiente. Sigo igual");
                     }
@@ -132,7 +134,7 @@ int main(int argc, char *argv[]) {
                 oss2 << "ring_sender: Conectado con nodo " << sid_sig;
                 log_info(oss2.str().c_str());
 
-                new_sid_sig = ring_sender(nsfd);
+                new_sid_sig = ring_sender(nsfd);    /// Lanzo SENDER
 
                 close(nsfd);
                 sid_sig = new_sid_sig - SID_SIG_BASE;
@@ -147,9 +149,10 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    /// Lanzador de RECEIVERs
     // Espero nuevas conexiones de nodos "anteriores" que intenten cambiar la configuración del anillo
     while (!sig_quit) {
-        log_info("ring_node: Espero nuevos nodos anteriores...");
+        log_info("ring_node: Listo para recibir nuevos nodos anteriores...");
         nafd = accept_client(nfd);
         if (sig_quit) break;
         if (nafd < 0) {
@@ -165,7 +168,6 @@ int main(int argc, char *argv[]) {
         std::ostringstream oss5;//
         oss5 << "ring_node: Nuevo nodo anterior, (re)lanzo handler receiver (nafd=" << nafd << ")";//
         log_info(oss5.str().c_str());//
-//        sleep(2);//
         pid_t p_recv = fork();
         if (p_recv == 0) {
             int r = ring_receiver(nafd);
@@ -177,7 +179,6 @@ int main(int argc, char *argv[]) {
             close(nafd);
             exit(0);
         }
-//        waitpid(p_recv, NULL, 0);///Solo de prueba, espera a que se muera el receiver anterior ///TODO: Borrar?
     }
 
     // Espero a que terminen todos los procesos hijos
@@ -189,7 +190,7 @@ int main(int argc, char *argv[]) {
 
 
 int ring_receiver(int nafd) {
-    int sid_ant = -1;
+    int sid_ant = -1, recerr = -1;
     ssize_t s;
     struct ringmsg_t rm;
 
@@ -197,6 +198,7 @@ int ring_receiver(int nafd) {
         log_debug("ring_receiver: Espero por red próximo mensaje del ring");//
         s = recv(nafd, &rm, sizeof(rm), 0);
         if (s <= 0) {
+            recerr = errno;
             if (s == 0 || sig_quit) break; ///Revisar ==0
             perror("ring_receiver");
             log_error("ring_receiver: Error al recibir mensaje del nodo anterior por red. Sigo");
@@ -234,14 +236,24 @@ int ring_receiver(int nafd) {
                     break;
                 case RETCONN:   // Alguien intenta reconectarse
                     if (rm.sid_orig == sid) {
-                        // Mi mensaje para reconectarse se distribuyó correctamente.
+                        // Mi mensaje para reconectarse se distribuyó correctamente. Ignoro
+                        log_info("ring_receiver: Reconexión satisfactoria");
+                        break;
                     } else if (strlen(rm.content) == 0) {
                         // Nodo se logró reconectar;
                         // notifico a quien me tenga como siguiente que debe pasar por él
                         strncpy(rm.content, std::to_string(sid).c_str(), MAX_MSG_LENGTH);
                         qsend(q_ringsend, &rm, sizeof(rm));
-                    } else if (atoi(rm.content) == sid) {sig_quit = true;
-                        // Se me conectó el anterior del caído; ///¿no hacer nada?
+                    } else if (atoi(rm.content) == sid) {
+                        //sig_quit = true;
+                        // Se me conectó el anterior del caído ///¿no hacer nada?
+                    } else if (atoi(rm.content) == CLOSE_RING_GAP) {
+                        // Confirmo que nuestro vínculo (anterior->yo) funciona, y distribuyo
+                        if (send(nafd, &rm, sizeof(rm), 0) < 0) {
+                            perror("ring_receiver: CLOSE_RING_GAP");
+                        } else {
+                            qsend(q_ringsend, &rm, sizeof(rm));
+                        }
                     } else {
                         // Envío para que se distribuya
                         qsend(q_ringsend, &rm, sizeof(rm));
@@ -289,69 +301,58 @@ int ring_receiver(int nafd) {
         }
     }
 
-    /// Esto en realidad no sirve
-//    if (sig_quit) {
-//        // Estado zombie donde distribuye mensajes, por un tiempo o hasta recibir confirmación de apagarse
-//        sig_quit = false;
-//        register_sig_handler(SIGALRM_handler, SIGALRM);
-//        alarm(SERVOFF_TIMER_SEC);
-//        while (!sig_quit) {
-//            log_debug("ring_receiver: Modo zombie");//
-//            s = recv(nafd, &rm, sizeof(rm), 0);
-//            if (s <= 0) {
-//                if (s == 0 || sig_quit) break;
-//                perror("ring_receiver");
-//                log_error("ring_receiver: (modo zombie) Error al recibir mensaje del nodo anterior por red. Sigo");
-//            } else {
-//                log_debug("ring_receiver: (modo zombie) Recibí mensaje por ring:");//
-//                rm.show();//
-//                // Descarto mensajes que no tengan un sid_orig válido
-//                if (rm.sid_orig < 0/* || rm.sid_orig > MAX_SID*/) {
-//                    continue;
-//                }
-//
-//                qsend(q_ringsend, &rm, sizeof(rm));
-//                if (rm.sid_orig == sid && rm.type == SERVOFF) {
-//                    sig_quit = true;
-//                }
-//            }
-//        }
-
-    if (!sig_quit) {    ///Tendría que chequear errno? O algo?
-        // En caso de que no esté apagando el server, hubo un error de red
-        ///Si cae la conexión y vuelve, tengo q reconectarme o puedo simplemente usarla?
-        alarm(RETCONN_TIMER_SEC);    // Chequea en algunos segundos si vuelve   ///TODO: ¿Funciona...?
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(nafd, &readfds);
-        struct timeval tv;
-        tv.tv_sec = 5;
-        tv.tv_usec = 0;
-        int r = 0;
-        while (!sig_quit && r <= 0) {
-            r = select(nafd + 1, &readfds, NULL, NULL, &tv);
+    if (!sig_quit) {    // && recerr == SUCCESS ?
+        // Cerró mi anterior, olvido dicho conexión e inmediatamente intento reconfigurar el anillo
+        ///Le doy más prioridad (mediante rm.mtype) a estos mensajes ?
+        log_info("ring_receiver: Parece haber caído mi anterior. Intento reconfigurar el anillo");
+        rm.sid_orig = sid;
+        rm.type = RETCONN;
+        if (sid_ant < 0) {
+            // Si tengo sid del caído, envío un RETCONN para el anterior a él
+            // Si no lo tengo, envío un RETCONN especial para que quien tenga un siguiente caído se conecte conmigo
+            sid_ant = CLOSE_RING_GAP;
         }
-
-        if (!sig_quit && r > 0) {
-            // Conexión está lista para ser chequeada; envío un mensaje de prueba
-            struct ringmsg_t test_rm;
-            if (send(nafd, &test_rm, sizeof(test_rm), 0) < 0) {
-                log_info("ring_receiver: Conexión con anterior fue cerrada, cierro este receiver");
-                return 0;
-            }
-            // Si anduvo, volvió la conexión y relanzo este receiver
-            log_info("ring_receiver: Relanzo esta conexión");
-            return RELANZAR_RET;
-        } else if (sig_quit && errno == EINTR) {  // Si no volvió a tiempo, intento enviar RETCONN con content=sid_caido
-            if (sid_ant >= 0) { // Si tengo sid del caído, envío un RETCONN para el anterior a él
-                rm.sid_orig = sid;
-                rm.type = RETCONN;
-                strncpy(rm.content, std::to_string(sid_ant).c_str(), MAX_MSG_LENGTH);
-                qsend(q_ringsend, &rm, sizeof(rm));
-            }
-            return 0;
-        } // Si simplemente tengo que irme, nada
+        strncpy(rm.content, std::to_string(sid_ant).c_str(), MAX_MSG_LENGTH);
+        qsend(q_ringsend, &rm, sizeof(rm));
     }
+    // La conexión vieja simplemente se olvida, se cierra el receiver y hay que reconfigurar el anillo
+//    if (!sig_quit) {    ///Tendría que chequear errno? O algo?
+//        // En caso de que no esté apagando el server, hubo un error de red; reintento la misma conexión por un tiempo
+//        log_info("ring_receiver: Intento recuperar conexión por algunos segundos");
+//        ///Si cae la conexión y vuelve, tengo q reconectarme o puedo simplemente usarla?
+////        alarm(RETCONN_TIMER_SEC);    // Chequea en algunos segundos si vuelve
+//        fd_set readfds;
+//        FD_ZERO(&readfds);
+//        FD_SET(nafd, &readfds);
+//        struct timeval tv;
+//        tv.tv_sec = 5;
+//        tv.tv_usec = 0;
+//        int r = 0;
+//        while (!sig_quit && r <= 0) {
+//            r = select(nafd + 1, &readfds, NULL, NULL, &tv);
+//        }
+//
+//        if (!sig_quit && r > 0) {
+//            // Conexión está lista para ser chequeada; envío un mensaje de prueba
+//            struct ringmsg_t test_rm;
+//            if (send(nafd, &test_rm, sizeof(test_rm), 0) < 0) {
+//                log_info("ring_receiver: Conexión con anterior fue cerrada, cierro este receiver");
+//                return 0;
+//            }
+//            // Si anduvo, volvió la conexión y relanzo este receiver
+//            log_info("ring_receiver: Relanzo esta conexión");
+//            return RELANZAR_RET;
+//        } else if (sig_quit && errno == EINTR) {  // Si no volvió a tiempo, intento enviar RETCONN con content=sid_caido
+//            if (sid_ant >= 0) { // Si tengo sid del caído, envío un RETCONN para el anterior a él
+//                rm.sid_orig = sid;
+//                rm.type = RETCONN;
+//                strncpy(rm.content, std::to_string(sid_ant).c_str(), MAX_MSG_LENGTH);
+//                qsend(q_ringsend, &rm, sizeof(rm));
+//            }
+//            return 0;
+//        } // Si simplemente tengo que irme, nada
+//    }
+    log_info("ring_receiver: Cierro receiver");
     return 0;
 }
 
@@ -370,7 +371,7 @@ int ring_sender(int nsfd) {
             switch (rm.type) {
                 case NEWCONN:
                     if (strlen(rm.content) == 0) {
-                        //??? No debería poder ser, cierto?
+                        ///??? No debería poder ser, cierto?
                     } else if (atoi(rm.content) == sid_sig) {
                         if (rm.sid_orig == sid) {
                             log_error("ring_sender: Recibí un mensaje NEWCONN con mi sid. Error. Ignoro");
@@ -398,6 +399,16 @@ int ring_sender(int nsfd) {
                         // Cayó el siguiente; tiro esta conexión y me conecto con uno posterior
                         new_conn = false;   // Evitar que el nuevo sender envíe un NEWCONN
                         return SID_SIG_BASE + rm.sid_orig;
+                    } else if (atoi(rm.content) == CLOSE_RING_GAP) {
+                        // Cayó alguien. Distribuyo el msj y si eso falla considero que es mi siguiente y lo reemplazo
+                        if (siguienteIsAlive(nsfd, rm)) {
+                            // No está caído; mensaje ya fue distribuido
+                            log_debug("ring_sender: Siguiente no parece caído, alguien más deberá cerrar el ring");
+                        } else {
+                            log_info("ring_sender: Creo que cayó mi siguiente, lo reemplazo con el del msj RETCONN");
+                            new_conn = false;
+                            return SID_SIG_BASE + rm.sid_orig;
+                        }
                     } else {
                         // Simplemente distribuyo
                         if (send(nsfd, &rm, sizeof(rm), 0) < 0)
@@ -460,21 +471,27 @@ int ring_sender(int nsfd) {
     }
 
     // Estado zombie donde distribuye mensajes, por un tiempo o hasta recibir confirmación de apagarse
-    log_debug("ring_sender: Entro en modo zombie");
+    log_info("ring_sender: Entro en modo ZOMBIE");
     sig_quit = false;
     register_sig_handler(SIGALRM_handler, SIGALRM);
     alarm(SERVOFF_TIMER_SEC);
     while (!sig_quit) {
-        log_debug("ring_sender: (zombie mode) Espero próximo mensaje en q_ringsend...");
+        log_debug("ring_sender: (MODO ZOMBIE) Espero próximo mensaje en q_ringsend...");
         if (qrecv(q_ringsend, &rm, sizeof(rm), 0) < 0) {
             if (sig_quit) break;
-            log_warn("ring_sender: (modo zombie) Error al recibir un mensaje de q_ringsend. Freno");
+            log_warn("ring_sender: (MODO ZOMBIE) Error al recibir un mensaje de q_ringsend. Freno");
             break;
         } else {
-            log_debug("ring_sender: (modo zombie) Recibí por cola msj ring:");//
+            log_debug("ring_sender: (MODO ZOMBIE) Recibí por cola msj ring:");//
             rm.show();//
 
-            if (rm.sid_orig != sid) {
+            if (rm.sid_orig == UNFILLED_SID) {
+                // Me quiero apagar
+                log_info("ring_sender: (MODO ZOMBIE) Me quiero apagar, envío SERVOFF");
+                rm.sid_orig = sid;    // Lleno el sid propio
+                if (send(nsfd, &rm, sizeof(rm), 0) < 0)
+                    perror("ring_sender");
+            } else if (rm.sid_orig != sid) {
                 if (send(nsfd, &rm, sizeof(rm), 0) < 0)
                     perror("ring_sender");
             } else if (rm.type == SERVOFF) {
@@ -485,6 +502,32 @@ int ring_sender(int nsfd) {
     }
     return 0;
 }
+
+// ring_sender: Para comprobar que el siguiente está vivo, espero una respuesta de él por unos segundos
+bool siguienteIsAlive(int nsfd, struct ringmsg_t rm) {
+    if (send(nsfd, &rm, sizeof(rm), 0) <= 0)
+        return false;
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(nsfd, &readfds);
+    struct timeval tv;
+    tv.tv_sec = RETCONN_TIMER_SEC;
+    tv.tv_usec = 0;
+    int r = select(nsfd + 1, &readfds, NULL, NULL, &tv);
+    if (r < 0) {
+        perror("ring_sender: siguienteIsAlive error");
+        return false;
+    } else if (r == 0) {
+        return false;
+    } else {
+        // Devuelve true solo si recibe algo sin bloquear; si la conexión cerró o cayó, recv devolverá <= 0
+        return ( recv(nsfd, &rm, sizeof(rm), MSG_DONTWAIT) > 0 );
+    }
+}
+//    ///Pruebo sin select, a ver si es lo que está causando lío
+//    sleep(2);///
+//    // Devuelve true solo si recibe algo sin bloquear; si la conexión cerró o cayó, recv devolverá <= 0
+//    return ( recv(nsfd, &rm, sizeof(rm), MSG_DONTWAIT) > 0 );
 
 
 void SIGINT_handler(int signum) {

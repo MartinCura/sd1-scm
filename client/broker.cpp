@@ -90,9 +90,7 @@ int main(int argc, char* argv[]) {
 
         // Espero a que terminen y cierro los recursos
         } else {
-            while (!sig_quit);    ///Legal?
-            //kill(p_req, SIGINT);    ///Inseguro si hace falta. Chequeable
-            //kill(p_rep, SIGINT);
+            while (!sig_quit);  ///Alternativa: while ( wait(NULL) > 0 );
             close(sfd);
             qdel(q_req);
             qdel(q_rep);
@@ -118,7 +116,7 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
     while (!sig_quit) {
         log_debug("broker-requester: Espero próximo mensaje en q_req...");//
         if (qrecv(q_req, &m, sizeof(m), 0) < 0) {
-            if (sig_quit) break;
+            if (errno == EINVAL || errno == EIDRM || sig_quit) break;
             log_warn("broker-requester: Error al recibir un mensaje de q_req. Sigo intentando");
         } else {
             log_debug("broker-requester: Recibí mensaje por cola:");//
@@ -235,6 +233,8 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd) {
             }
         }
     }
+    // Si yo termino, ya sea por detectar que cayó el server o lo que sea, me aseguro de que muera toda mi familia
+    kill(getppid(), SIGINT);
     log_debug("broker-replier: Termino");//
 }
 

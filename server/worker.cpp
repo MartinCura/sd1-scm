@@ -157,6 +157,7 @@ int main(int argc, char* argv[]) {
                             strncpy(rm.topic,   m.topic, MAX_TOPIC_LENGTH);
                             strncpy(rm.content, m.msg,   MAX_MSG_LENGTH);
                             qsend(q_ringsend, &rm, sizeof(rm));
+                            log_info("worker: Difundí publicación por ring");
                         }
 
                         // Difusión a brokers: Envío un mensaje por cada suscriptor
