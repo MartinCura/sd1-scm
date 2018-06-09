@@ -8,28 +8,29 @@
 #include <iostream>
 #include "constants.h"
 
-// Type
+#define UNFILLED_SID    -2
+#define CLOSE_RING_GAP  -3
+
+// ringmsg_t types
 #define NEWCONN 1   // Nueva conexión de nodo que quiere integrarse al ring
 #define RETCONN 2   // Falló algo y busca reconectarse
 #define PUBLISH 3   // Distribución de mensaje por el ring
 #define SERVOFF 4   // Se desconectará y apagará tras volver a recibirlo o timeout
 #define SHUTDWN 5   // Apagar todos los servers
 
-#define UNFILLED_SID -2
-#define CLOSE_RING_GAP -3
-
 typedef struct ringmsg_t {
-    long mtype = 1;
-    int  type;                      // Tipo de ringmsg, de la lista anterior
-    int  sid_orig = -2;             // Originador del mensaje
-    char topic[MAX_TOPIC_LENGTH] = "";
-    char content[MAX_MSG_LENGTH] = "";
+    long mtype = 3;                         // Disminuir valor según urgencia
+    int  type;                              // Tipo de ringmsg, de la lista anterior
+    int  sid_orig = -2;                     // Originador del mensaje
+    char topic[MAX_TOPIC_LENGTH] = "";      // Fuera de PUBLISH, puede guardar una IP
+    char content[MAX_MSG_LENGTH] = "";      // Fuera de PUBLISH, puede guardar un sid auxiliar o un flag
 
     void show() {
-        std::cout << "rmsg> type=" << type
-                  << ", id_orig=" << sid_orig
-                  << ", topic=" << topic
-                  << ", content=" << content << std::endl;
+        std::cout << "rmsg>"
+                  <<      " type=" << type
+                  <<  ", id_orig=" << sid_orig
+                  <<    ", topic=" << topic
+                  <<  ", content=" << content << std::endl;
     }
 } ringmsg_t;
 

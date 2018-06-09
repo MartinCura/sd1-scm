@@ -111,7 +111,6 @@ int main(int argc, char* argv[]) {
             case SUB_MSG:     // Si id existe, en fs agrega sub al topic y topic al sub. Si topic no existía lo crea
                 {
                     if (ids.find(m.id) != ids.end()) {
-                        ///Validar input?
                         // Concurrencia: Eventualmente lockear archivos
                         int s = 0;
                         std::fstream s_fs, t_fs;
@@ -232,8 +231,8 @@ int main(int argc, char* argv[]) {
         }
 
         // Envío mensaje respuesta
+        log_debug("worker: Devuelvo por cola el mensaje respuesta");//
         qsend(q_rep, &m, sizeof(m));
-        log_debug("worker: Devolví por cola el mensaje respuesta");//
     }
 
     unmapshm(next_id_p);

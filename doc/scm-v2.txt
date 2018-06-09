@@ -1,4 +1,5 @@
-scm-v2 - Servers distribuidos en una ring network
+scm-v2 - Servidores distribuidos en una ring network
+////////////////////////////////////////////////////
 
 Ring network unidireccional. Cada server tendrá un sid (server id) único, y 2 procesos que lo representan en el ring: para esperar mensajes del anterior (ring-receiver) y enviar al siguiente (ring-sender); entre estos comunicar mediante cola ipc. Además tendrá un proceso esperando servers que deseen conectarse.
 
@@ -65,7 +66,7 @@ Casos si recibí un ringmsg:
 - NEWCONN sin content: Se me intenta conectar alguien que no estaba en el anillo.
 - NEWCONN con content: Alguien se agrega al anillo, si content==sid_sig conectarme al sid_orig y enviarlo por el camino viejo; si content==sid_propio, cerrar receeptor; si no, distribuir.
 - RETCONN sin content: Se me intenta reconectar alguien.
-- RETCONN con content: Mensaje para cerrar anillo. Si content==sid_caido conectarme a sid_orig; si no, distribuir, ¿si content==sid_propio?.
+- RETCONN con content: Mensaje para cerrar anillo. Si content==sid_caido conectarme a sid_orig; si content==CLOSE_RING_GAP, verificar siguiente; si no, distribuir, ¿si content==sid_propio?.
 - PUBLISH: Alguien publicó. Si sid_orig==sid_propio descartar, si no publicar mediante server y distribuir.
 - SERVOFF: Se apaga un server. Si sid_orig==sid_propio, me puedo apagar; si no: si content vacío, cierro receptor y escucho, meto content=sid_propio y distribuyo, si no distribuyo y si sid_orig==sid_sig cierro emisor y me conecto con el sid en content.
 - SHUTDWN: Distribuyo y me apago (tras un pequeño flush timer?).
@@ -85,4 +86,3 @@ TO DO
 
 DUDAS
 a) Debería haber un criterio para no permitir a un nuevo server interponerse entre 2? Lo derivo a otro lado?
-

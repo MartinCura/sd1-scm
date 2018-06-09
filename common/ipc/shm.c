@@ -5,7 +5,7 @@
 #include "resources.h"
 #include "../log/log.h"
 
-int creashm(int key, int size) {
+int creashm(int key, size_t size) {
     key_t clave;
     clave = ftok(IPC_DIRECTORY, key);
     if (clave < 0) {

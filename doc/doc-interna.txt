@@ -100,3 +100,50 @@ AUTORESPUESTAS
 
 DUDAS 2 REDUX: 1, 5, 6, 10
 
+------------
+
+TAREAS
+
+- Interfaz -
+Recibe (por argumento? o cli?) el comando deseado y lo ejecuta enviando al BL de forma apropiada, mediante un mensaje. Espera la respuesta y la muestra al usuario. Se comunica mediante una cola de ida y otra de vuelta, que deben ser fijas en el sistema ya que hay un solo BL corriendo localmente.
+
+- Broker local -
+REQUESTER: Inicia y mantiene una conexión con el server, una vez que es necesario. Recibe por cola predeterminada los comandos y los envía al server. Mappea id local a global (hacerlo creciente no repetido). En caso de RECV simplemente notifica al otro proceso?
+REPLIER: Este recibe las respuestas del servidor y reenvía a la cola local de respuesta. Mappea id local a global. También puede recibir broadcasts de un canal, que almacena en memoria (FIFO) a la espera de un receive, en cuyo caso envía a la cola local.
+[Mismo archivo?]
+
+- Server handlers -
+CONNECTION HANDLER: Recibe intentos de conexión de distintos BL y lanza dos procesos para manejarlo...
+REQUEST HANDLER: Administra la conexión con cierto BL. Recibe por socket los comandos empaquetados y los envía a una cola interna para que sean procesados por workers.
+REPLY HANDLER: Recibe de otra cola interna los replies y los envía por su socket al BL.
+
+- Worker -
+Procesa apropiadamente el comando recibido:
+-Create: Asigna un id de usuario, registra, y devuelve.
+-Pub: Si id existe, envía el msg a todos los subscriptores del topic. Si topic no existía, crearlo.
+-Sub: Si id existe, agrega id a los subscriptores del topic en fs. Si topic no existía, crearlo [me imagino].
+-Recv: Ignorar, no debería llegar hasta acá. Error.
+-Destroy: Si id existe, desubscribirlo de todos los topics y desregistrarlo (debería ser medianamente atómico).
+
+------------
+
+Idea para flujo de ids:
+
+En general:
+	client <-------> broker <-----||----> handlers <-------> workers
+mtype       loc        	loc/Z			Z/cfd	        cfd
+id         ±loc        ±loc/±glob	      ±glob	      ±glob
+
+En CREATE():
+	client --------> broker ------||----> handlers --------> workers
+mtype         X        	   X			X/cfd	        cfd
+id          loc           loc		       	loc		loc
+	client <-------- broker <-----||----- handlers <-------- workers
+mtype       loc        	loc/Z			Z/cfd	        cfd
+id         ±loc          ±loc		        loc       	loc
+msg	    loc		loc/glob		glob	       glob
+
+X puede ser cualquier cosa.
+Z puede ser cualquier cosa. Lo mejor sería no dejar cfd, por lo que puedo ponerle glob o 1 o lo q sea.
+
+Devolver id negativo significa error. Detalle en msg.

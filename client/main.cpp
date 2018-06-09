@@ -93,7 +93,6 @@ int main(int argc, char* argv[]) {
         showHelp(argv);
         return 1;
     }
-    ///TODO: Errores de comunicación no son detectados
 }
 
 
@@ -144,6 +143,7 @@ int createUser() {
         m.mtype = 1;
         m.type = CREATE_MSG;
         qsend(q_req, &m, sizeof(m));
+
         qrecv(q_rep, &m, sizeof(m), m.id);
     }
     if (errorCheck(m)) return -1;
@@ -158,6 +158,7 @@ int publishMessage(int id, char* msg, char* topic) {
     strncpy(m.msg, msg, MAX_MSG_LENGTH);
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
     qsend(q_req, &m, sizeof(m));
+
     qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
     std::cout << "Mensaje publicado." << std::endl;
@@ -170,6 +171,7 @@ int subscribeToTopic(int id, char* topic) {
     m.type = SUB_MSG;
     strncpy(m.topic, topic, MAX_TOPIC_LENGTH);
     qsend(q_req, &m, sizeof(m));
+
     qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
     std::cout << "Suscripto." << std::endl;
@@ -181,9 +183,10 @@ int receiveMessage(int id) {
     m.mtype = m.id = id;
     m.type = RECV_MSG;
     qsend(q_req, &m, sizeof(m));
+
     qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
-    if (m.id == 0) {
+    if (m.id == 0) {    // Caso especial para receive
         std::cout << m.msg << std::endl;
         return 0;
     }
@@ -199,6 +202,7 @@ int destroyUser(int id) {
     m.mtype = m.id = id;
     m.type = DESTROY_MSG;
     qsend(q_req, &m, sizeof(m));
+
     qrecv(q_rep, &m, sizeof(m), id);
     if (errorCheck(m)) return -1;
     std::cout << "Usuario " << m.id << " eliminado." << std::endl;

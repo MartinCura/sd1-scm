@@ -1,14 +1,13 @@
-#include <sys/socket.h>
-#include <stdlib.h>
-#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
+#include <stdio.h>
 #include <strings.h>
 #include <errno.h>
+#include <ifaddrs.h>
+#include <string.h>
 
 #include "socket.h"
 #include "../log/log.h"
-
-///TODO: Cambié exit's por return's; revisar que siempre chequeo el return y fallo si hace falta
 
 int create_client_socket(const char* server_ip, uint16_t server_port) {
     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -79,4 +78,48 @@ int accept_client(int server_socket) {
     }
 
     return client_fd;
+}
+
+/* Obtiene dirección IP propia, wlan# si está, si no eth#
+ * Si no encuentra, no modifica ip_addr y devuelve -1 */
+int obtener_ip_propia(char *ip_addr) {
+    struct ifaddrs *ifaddr, *ifa;
+    int n, s = 0;
+    char e_host[NI_MAXHOST] = "", w_host[NI_MAXHOST] = "";
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return -1;
+    }
+    for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+        if (ifa->ifa_addr == NULL)
+            continue;
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            if (strncmp(ifa->ifa_name, "eth", 3) == 0) {
+                s = getnameinfo(ifa->ifa_addr,
+                                sizeof(struct sockaddr_in),
+                                e_host, NI_MAXHOST,
+                                NULL, 0, NI_NUMERICHOST);
+            } else if (strncmp(ifa->ifa_name, "wlan", 4) == 0) {
+                s = getnameinfo(ifa->ifa_addr,
+                                sizeof(struct sockaddr_in),
+                                w_host, NI_MAXHOST,
+                                NULL, 0, NI_NUMERICHOST);
+            }
+            if (s != 0) {
+                printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                return -1;
+            }
+        }
+    }
+    freeifaddrs(ifaddr);
+
+    if (strlen(w_host) > 0) {
+        strcpy(ip_addr, w_host);
+    } else if (strlen(e_host) > 0) {
+        strcpy(ip_addr, e_host);
+    } else {
+        return -1;
+    }
+    return 0;
 }

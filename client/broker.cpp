@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 
     // Conecto con el servidor, obtengo el socket file descriptor
     uint16_t puerto_server = (uint16_t) (PUERTO_SERVER + sid);
-    int sfd = create_client_socket(IP_SERVER, puerto_server);
+    int sfd = create_client_socket(IP_SERVER_DEFAULT, puerto_server);
     if (sfd < 0) {
         log_error("broker: Error al crear socket cliente. Freno");
         exit(-1);
@@ -90,16 +90,15 @@ int main(int argc, char* argv[]) {
 
         // Espero a que terminen y cierro los recursos
         } else {
-            while (!sig_quit);  ///Alternativa: while ( wait(NULL) > 0 );
+            while (!sig_quit);  //Alternativa que espera a que cierren los hijos: while ( wait(NULL) > 0 );
             close(sfd);
             qdel(q_req);
             qdel(q_rep);
             qdel(q_storedmsg);
             unmapshm(ids_p);
-            log_debug("broker: Cerré conexión, colas, y shm");//
+            log_debug("broker: Cerré conexión, colas, y shm; esperaré hijos");//
             // Espero a que terminen todos los procesos hijos
             while (wait(NULL) > 0);
-            log_debug("broker: Terminaron hijos, borro ipc");//
             delshm(ids_shm);
             delsem(ids_sem);
             log_info("broker: TERMINO");
@@ -150,7 +149,6 @@ void requester(int* ids_p, int q_req, int q_rep, int q_storedmsg, int sfd) { // 
 
             if (m.type == RECV_MSG) {
                 if (devolverMensajeRecibido(q_storedmsg, &m, m.id) == 0) {
-//                m.mtype = abs(m.id);
                     m.show();//
                     qsend(q_rep, &m, sizeof(m));
                 }
@@ -248,7 +246,7 @@ int devolverMensajeRecibido(int q_storedmsg, struct msg_t* m, int user_id) {
     } else if (errno == ENOMSG) {
         // No hay nuevos mensajes
         log_debug("broker-requester: No hay mensajes recibidos para devolverle al cliente");//
-        m->id = 0;///-1 * abs(m->id);
+        m->id = 0;
         strcpy(m->topic, "");
         strcpy(m->msg, "¡No hay mensajes nuevos!");
         return 0;

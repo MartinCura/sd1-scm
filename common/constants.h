@@ -23,11 +23,12 @@
 #define SERVER_NEXT_ID_SHM_ID 2
 
 // Constantes
+#define MAX_SID          500
 #define MAX_TOPIC_LENGTH 30
 #define MAX_MSG_LENGTH   280
-#define IP_SERVER "127.0.0.1"
+#define IP_SERVER_DEFAULT "127.0.0.1"
 #define PUERTO_NODO_RING 8000   // Puerto como nodo del ring
-#define PUERTO_SERVER    8100   // Puerto para los brokers
+#define PUERTO_SERVER    8500   // Puerto para los brokers
 #define CANT_SERVER_WORKERS 1   ///Para que pueda ser mayor a 1, falta concurrencia en worker
 #define LOCAL_FIRST_ID  1   // 101 ? Menor es mejor
 #define LOCAL_MAX_ID    1000
@@ -36,7 +37,7 @@
 #define RETCONN_TIMER_SEC 8
 
 // Directorios
-//#define SERVER_DB_ROOT_DIR    "./scm-db/"
+//#define SERVER_DB_ROOT_DIR  "./scm-db/"
 #define SERVER_DB_TOPICS_DIR  "./scm-db/topics/"
 #define SERVER_DB_SUBS_DIR    "./scm-db/subs/"
 #define SERVER_DB_FILE_EXT    ".txt"

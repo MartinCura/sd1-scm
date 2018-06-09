@@ -11,7 +11,6 @@
 #include "../common/message.h"
 #include "../common/ipc/resources.h"
 #include "../common/ringmessage.h"
-
 extern "C" {
 #include "../common/log/log.h"
 #include "../common/ipc/msg_queue.h"
@@ -32,29 +31,33 @@ void SIGINT_handler(int signum);
 void crearEstructuraDb();
 
 int main(int argc, char* argv[]) {
-    if (argc > 3) {
+    /* argv = { ./scm-server [<sid>] [<sid-siguiente>] [<IP-siguiente>] } */
+    if (argc > 4) {
         log_error("server: Cantidad de argumentos incorrecta. Freno");
         return -1;
-    }///TODO: IPs parametrizables o configurables por un archivo
+    }
     if ( argc >= 2 &&
          (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) ) {
         std::ostringstream oss;
-        oss << "Usage: " << argv[0] << " [id] [id del siguiente en el anillo]";
+        oss << "Usage: " << argv[0] << " [id] [id del siguiente] [IP del siguiente]" << std::endl
+            << "Usar sin argumentos para correr fuera de un ring";
         log_info(oss.str().c_str());
         return 0;
     }
-    if (argc == 2)
-        log_info("server: COMIENZO con " + atoi(argv[1]));
-    else
-        log_info("server: COMIENZO");
-
     // Si llegaron, agarro id asignado y id al que me conectaré, y cambio a la carpeta correspondiente
-    char *s_sid = NULL, *s_sid_sig = NULL;
+    char *s_sid = NULL, *s_sid_sig = NULL, *ip_sig = NULL;
     if (argc >= 2) {
         partOfRing = true;
-        s_sid = argv[1];  ///No reviso ninguno de estos valores wopss
+        s_sid = argv[1];
+        if (strlen(s_sid) > 0 && (atoi(s_sid) < 0 || atoi(s_sid) >= MAX_SID)) {
+            log_error("server: sid inválido. Freno");
+            return -1;
+        }
         if (argc >= 3) {
             s_sid_sig = argv[2];
+            if (argc >= 4) {
+                ip_sig = argv[3];
+            }
         }
         std::string folder = "./s" + std::string(s_sid) + "/";
         std::string s = "mkdir -p " + folder;
@@ -63,6 +66,10 @@ int main(int argc, char* argv[]) {
         s = "cp ../scm-client .";
         system(s.c_str());
     }
+    if (argc >= 2)
+        log_info("server: COMIENZO, con sid " + atoi(argv[1]));
+    else
+        log_info("server: COMIENZO");
 
     register_SIGINT_handler(SIGINT_handler);
     crearEstructuraDb();
@@ -91,7 +98,7 @@ int main(int argc, char* argv[]) {
     // Creo el nodo que me conecta al ring
     if (partOfRing) {
         if (fork() == 0) {
-            execl("../ring-node", "./ring-node", s_sid, s_sid_sig, (char *) NULL);
+            execl("../ring-node", "./ring-node", s_sid, s_sid_sig, ip_sig, (char *) NULL);
             exit(0);
         }
     }
