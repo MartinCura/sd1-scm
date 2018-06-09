@@ -31,7 +31,7 @@ void SIGINT_handler(int signum);
 void crearEstructuraDb();
 
 int main(int argc, char* argv[]) {
-    /* argv = { ./scm-server [<sid>] [<sid-siguiente>] [<IP-siguiente>] } */
+    /* argv = { ./scm-server [<sid>] [<sid siguiente>] [<IP siguiente>] } */
     if (argc > 4) {
         log_error("server: Cantidad de argumentos incorrecta. Freno");
         return -1;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         s_sid = argv[1];
         if (strlen(s_sid) > 0 && (atoi(s_sid) < 0 || atoi(s_sid) >= MAX_SID)) {
             log_error("server: sid inválido. Freno");
-            return -1;
+            return -2;
         }
         if (argc >= 3) {
             s_sid_sig = argv[2];

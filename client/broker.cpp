@@ -27,8 +27,9 @@ void replier(int *ids_p, int q_rep, int q_storedmsg, int sfd);
 void SIGINT_handler(int signum);
 
 int main(int argc, char* argv[]) {
-    if (argc > 2) {
-        log_error("server: Demasiados argumentos. Freno");
+    /* argc = { ./local-broker [-p <IP server>] [<sid>] } */
+    if (argc > 4) {
+        log_error("broker: Demasiados argumentos. Freno");
         return -1;
     } else if (argc >= 2 &&
                (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
@@ -37,14 +38,32 @@ int main(int argc, char* argv[]) {
         log_info(oss.str().c_str());
         return 0;
     }
+    int sid = 0;
+    char ip_serv[16] = IP_SERVER_DEFAULT;
     log_info("broker: Comienzo");
 
-    // Agarro id del server al que se conecta; si no hay ring será sid = 0 por default
-    int sid = 0;
-    if (argc >= 2) {
+    // Si enviados por argumento, recibo IP y/o id del server al que se conecta;
+    // si no hay ring será sid = 0 por default
+    if (argc == 2) {
         sid = atoi(argv[1]);
+    } else if (argc >= 3) {
+        if (strcmp(argv[1], "-p") == 0) {
+            strncpy(ip_serv, argv[2], 16);
+            sid = atoi(argv[3]);
+        } else {
+            sid = atoi(argv[1]);
+            if (argc >= 4 && strcmp(argv[2], "-p") == 0) {
+                strncpy(ip_serv, argv[3], 16);
+            }
+        }
+    }
+    if (sid < 0 || sid > MAX_SID) {
+        log_error("broker: sid inválido. Freno");
+        return -2;
+    }
+    if (argc >= 2) {
         // Cambio al directorio del server
-        std::string folder = "./s" + std::string(argv[1]) + "/";
+        std::string folder = "./s" + std::to_string(sid) + "/";
         chdir(folder.c_str());
     }
 
@@ -52,7 +71,7 @@ int main(int argc, char* argv[]) {
 
     // Conecto con el servidor, obtengo el socket file descriptor
     uint16_t puerto_server = (uint16_t) (PUERTO_SERVER + sid);
-    int sfd = create_client_socket(IP_SERVER_DEFAULT, puerto_server);
+    int sfd = create_client_socket(ip_serv, puerto_server);
     if (sfd < 0) {
         log_error("broker: Error al crear socket cliente. Freno");
         exit(-1);
