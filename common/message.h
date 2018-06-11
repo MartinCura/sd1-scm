@@ -19,8 +19,8 @@ typedef struct msg_t {
     long mtype = 1;
     int  type;
     int  id;
-    char topic[MAX_TOPIC_LENGTH];
-    char msg  [MAX_MSG_LENGTH];
+    char topic[MAX_TOPIC_LENGTH] = "";
+    char msg  [MAX_MSG_LENGTH] = "";
 
     void show() {
         std::cout << "msg> type=" << type

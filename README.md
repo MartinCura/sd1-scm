@@ -1,5 +1,9 @@
-# sd1-scm
-Sistema de colas de mensajes, para Sistemas Distribuidos 1 -- FIUBA
+# Sistema de colas de mensajes
+
+## Sistemas Distribuidos I -- FIUBA
+
+
+### Compile
 
 ```bash
 $ mkdir bin/
@@ -8,15 +12,32 @@ $ cmake ..
 $ make
 ```
 
-Para correr solo un server, en distintas terminales correr scm-server, después local-broker, y en otra se puede usar el sistema enviando comandos a scm-client.
+### Run
 
-Para correr en ring:
-Se debe correr el primer server únicamente con su id, y cada subsiguiente indicándole a cuál se conectará.
+Se puede correr un único servidor o varios en forma de anillo.
+Estos pueden estar en cualquier lado pero donde se corra el client-side debe antes lanzarse un broker local, que medie con el server.
+
+#### Modo independiente
+Para tener solo un server, en distintas terminales correr
+
+```bash
+(1)$ ./scm-server
+
+(2)$ ./local-broker
+
+(3)$ ./scm-client [comando] [[argumentos]]
 ```
-$ scm-server <server id> [<next server id>]
 
-$ local-broker <server id>
+#### Modo ring
+Se debe lanzar el primer server únicamente con su id, y cada subsiguiente indicándole a cuál de los anteriores se conectará.
+En cada sistema donde se quiera iniciar un server y un broker local, correr en distintas terminales:
+```bash
+(1)$ scm-server <server id> [<next server id>] [<next server IP si no es local>]
 
-$ cd s<server id>/
+(2)$ local-broker <server id> [-p <server IP si no es local>]
+
+(3)$ cd s<server id>/
+(3)$ ./scm-client [comando] [[argumentos]]
 ```
-En cada host se envían los comandos a scm-client dentro de la carpeta hecha para el servidor local (por si se quieren lanzar varios servers en el mismo sistema).
+En cada host se envían los comandos a ```scm-client``` dentro de la carpeta hecha para el servidor local (por si se quieren lanzar varios servers en el mismo sistema).
+

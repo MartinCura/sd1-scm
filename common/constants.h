@@ -37,7 +37,7 @@
 #define RETCONN_TIMER_SEC 8
 
 // Directorios
-//#define SERVER_DB_ROOT_DIR  "./scm-db/"
+#define SERVER_DB_ROOT_DIR    "./scm-db/"
 #define SERVER_DB_TOPICS_DIR  "./scm-db/topics/"
 #define SERVER_DB_SUBS_DIR    "./scm-db/subs/"
 #define SERVER_DB_FILE_EXT    ".txt"

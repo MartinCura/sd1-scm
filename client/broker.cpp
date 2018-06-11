@@ -10,6 +10,7 @@
 #include <sstream>
 #include "../common/constants.h"
 #include "../common/message.h"
+#include "../common/ipc/resources.h"
 extern "C" {
 #include "../common/ipc/semaphore.h"
 #include "../common/ipc/shm.h"
@@ -34,7 +35,7 @@ int main(int argc, char* argv[]) {
     } else if (argc >= 2 &&
                (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         std::ostringstream oss;
-        oss << "Usage: " << argv[0] << " [server id]";
+        oss << "Usage: " << argv[0] << " [-p <server IP>] [server id]";
         log_info(oss.str().c_str());
         return 0;
     }
@@ -65,6 +66,12 @@ int main(int argc, char* argv[]) {
         // Cambio al directorio del server
         std::string folder = "./s" + std::to_string(sid) + "/";
         chdir(folder.c_str());
+    }
+    // Crea archivo IPC si no existe
+    if (access(IPC_DIRECTORY, F_OK) == -1) {
+        std::string s = "mkdir -p " + std::string(SERVER_DB_ROOT_DIR)
+                        + " && echo \"\" >> " + std::string(IPC_DIRECTORY);
+        system(s.c_str());
     }
 
     register_SIGINT_handler(SIGINT_handler);
