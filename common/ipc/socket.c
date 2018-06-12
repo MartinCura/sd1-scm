@@ -95,7 +95,9 @@ int obtener_ip_propia(char *ip_addr) {
         if (ifa->ifa_addr == NULL)
             continue;
         if (ifa->ifa_addr->sa_family == AF_INET) {
-            if (strncmp(ifa->ifa_name, "eth", 3) == 0) {
+            if (strncmp(ifa->ifa_name, "eth", 3) == 0 ||
+                strncmp(ifa->ifa_name, "eps", 3) == 0 ||
+                strncmp(ifa->ifa_name, "enp", 3) == 0) {
                 s = getnameinfo(ifa->ifa_addr,
                                 sizeof(struct sockaddr_in),
                                 e_host, NI_MAXHOST,
